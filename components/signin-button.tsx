@@ -5,7 +5,9 @@ export default async function LoginButton() {
         <form
             action={async () => {
                 "use server";
-                await signIn("github");
+                await signIn("github", {
+                    redirectTo: "/confirm-login"
+                });
             }}
         >
             <button
