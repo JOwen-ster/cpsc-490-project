@@ -1,4 +1,4 @@
-import GitHubLoginButton from "@/components/GitHubLoginButton";
+import LoginButton from "@/components/signin-button";
 
 export default function Home() {
   return (
@@ -7,7 +7,7 @@ export default function Home() {
         <span className="text-red-500">Git</span>Graph
       </h1>
       <p className="text-center">Organize and group your GitHub issues</p>
-      <GitHubLoginButton />
+      <LoginButton />
     </main>
   );
 }
