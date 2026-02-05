@@ -13,7 +13,8 @@ export default async function DashboardPage({ params }: Props) {
   }
 
   // access GitHub username or user id
-  // this is done using the 
+  // this is done using the session object
+  // refer to auth.ts in root dir
 
   return (
     <div className="p-6">
