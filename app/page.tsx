@@ -1,5 +1,4 @@
-import Image from "next/image";
-import GitHubLoginButton from "./components/GitHubLoginButton";
+import LoginButton from "@/components/signin-button";
 
 export default function Home() {
   return (
@@ -17,7 +16,7 @@ export default function Home() {
         </p>
 
         {/* Login Button */}
-        <GitHubLoginButton />
+        <LoginButton />
       </section>
 
       {/* How it works */}
