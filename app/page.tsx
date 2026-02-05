@@ -1,5 +1,4 @@
-import Image from "next/image";
-import GitHubLoginButton from "./components/GitHubLoginButton";
+import GitHubLoginButton from "@/components/GitHubLoginButton";
 
 export default function Home() {
   return (
