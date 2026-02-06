@@ -5,9 +5,17 @@ import LoginButton from "@/components/signin-button";
 export default async function Home() {
   const session = await auth();
 
-  if (session?.user?.username) {
-    redirect(`/dashboard/${session.user.username}`);
+  if (session){
+    const username = session.user?.username;
+    if (username) {
+      redirect(`/dashboard/${username}`);
+    } else {
+      // Session exists but is missing required user data; recover by clearing it.
+      // NOTE: need to still implement signout 
+      // redirect("/api/auth/signout");
+
   }
+
 
   return (
     <main className="min-h-screen bg-[#0d1117] text-gray-200 p-8 flex flex-col gap-16">
