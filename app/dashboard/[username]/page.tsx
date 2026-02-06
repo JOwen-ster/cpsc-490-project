@@ -2,18 +2,19 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 
 interface Props {
-  params: { username: string };
+  params: Promise<{ username: string }>;
 }
 
 export default async function DashboardPage({ params }: Props) {
+  const { username } = await params;
   const session = await auth();
 
-  if ( session == null) {
+  if ( !session ) {
     redirect("/");
   }
 
-  if ( session?.user.username != params.username ){
-    redirect("/");
+  if ( session?.user.username != username ){
+    redirect("/")
   }
 
   // TODO:

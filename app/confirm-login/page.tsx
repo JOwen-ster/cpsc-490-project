@@ -5,5 +5,8 @@ export default async function AfterLoginPage() {
     const session = await auth();
 
     if ( !session ) redirect("/");
-    redirect(`/dashboard/${session.user.username}`);
+
+    const uname = session.user.username;
+
+    redirect(`/dashboard/${uname}`);
 }
