@@ -1,4 +1,5 @@
 import NextAuth from "next-auth";
+import { JWT } from "next-auth/jwt";
 import GitHub from "next-auth/providers/github";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
@@ -17,10 +18,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async jwt({ token, account, profile }) {
       if (account) {
-        token.accessToken = account.access_token;
+        token.accessToken = account.access_token as string;
       }
       if (profile) {
-        token.id = profile.id?.toString();
+        token.id = profile.id?.toString() as string;
         token.username = profile.login as string;
         token.avatar = profile.avatar_url as string;
       }
@@ -29,10 +30,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
     async session({ session, token }) {
       if (token && session.user) {
-        session.user.id = token.id;
-        session.user.username = token.username;
-        session.user.image = token.avatar;
-        session.accessToken = token.accessToken;
+        session.user.id = token.id as string;
+        session.user.username = token.username as string;
+        session.user.image = token.avatar as string;
+        session.accessToken = token.accessToken as string;
       }
       return session;
     },
