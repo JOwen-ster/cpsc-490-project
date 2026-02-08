@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export default function RepoSelect() {
+export default function RepoSelectPage() {
   return (
     <main className="min-h-screen bg-[#0d1117] text-[#e6edf3] flex items-center justify-center">
       <DropdownMenu>
