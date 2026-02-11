@@ -19,6 +19,7 @@ export default async function DashboardPage({ params }: Props) {
       <h1 className="text-2xl font-bold mb-4">
         Hello, {session.user?.username}!
       </h1>
+      {/* NOTE: Signout button, move to correct spot when dashboard page is done*/}
       <SignOutButton />
     </div>
   );
