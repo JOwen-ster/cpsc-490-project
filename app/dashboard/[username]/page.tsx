@@ -10,7 +10,7 @@ export default async function DashboardPage({ params }: Props) {
   const { username } = await params;
   const session = await auth();
 
-  if (!session || session?.user.username != username) {
+  if (!session || session.user?.username !== username) {
     redirect("/");
   }
 
