@@ -10,9 +10,7 @@ export default async function Home() {
     if (username) {
       redirect(`/dashboard/${username}`);
     }
-    // If session exists but username is missing, we allow them to stay on the home page
-    // and potentially try signing in again, or we could force a sign out.
-    // For now, let's just not redirect.
+    // If session exists but username is missing, keep them on homepage to resign in
   }
 
   return (
