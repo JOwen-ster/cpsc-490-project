@@ -9,11 +9,8 @@ export default async function Home() {
     const username = session.user?.username;
     if (username) {
       redirect(`/dashboard/${username}`);
-    } else {
-      // Session exists but is missing required user data; recover by clearing it.
-      // NOTE: need to still implement signout
-      // redirect("/api/auth/signout");
     }
+    // If session exists but username is missing, keep them on homepage to resign in
   }
 
   return (
