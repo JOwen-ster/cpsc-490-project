@@ -1,3 +1,4 @@
+import { auth } from "@/auth";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -8,8 +9,35 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { redirect } from "next/navigation";
 
-export default function RepoSelectPage() {
+export default async function RepoSelectPage() {
+  const session = await auth();
+
+  if (!session?.accessToken) {
+    redirect("/api/auth/signin");
+  }
+
+  const response = await fetch(
+    "https://api.github.com/user/repos?sort=updated&per_page=10",
+    {
+      headers: {
+        Authorization: `Bearer ${session.accessToken}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    }
+  );
+
+  if (!response.ok) {
+    return (
+      <main className="min-h-screen bg-[#0d1117] text-[#e6edf3] flex items-center justify-center">
+        <p>Failed to fetch repositories. Please try signing in again.</p>
+      </main>
+    );
+  }
+
+  const repos = await response.json();
+
   return (
     <main className="min-h-screen bg-[#0d1117] text-[#e6edf3] flex items-center justify-center">
       <DropdownMenu>
@@ -31,15 +59,14 @@ export default function RepoSelectPage() {
 
             <DropdownMenuSeparator className="bg-[#30363d]" />
 
-            <DropdownMenuItem className="focus:bg-[#1f6feb] focus:text-white cursor-pointer px-3 py-2">
-              Repo 1
-            </DropdownMenuItem>
-            <DropdownMenuItem className="focus:bg-[#1f6feb] focus:text-white cursor-pointer px-3 py-2">
-              Repo 2
-            </DropdownMenuItem>
-            <DropdownMenuItem className="focus:bg-[#1f6feb] focus:text-white cursor-pointer px-3 py-2">
-              Repo 3
-            </DropdownMenuItem>
+            {repos.map((repo: any) => (
+              <DropdownMenuItem
+                key={repo.id}
+                className="focus:bg-[#1f6feb] focus:text-white cursor-pointer px-3 py-2"
+              >
+                {repo.name}
+              </DropdownMenuItem>
+            ))}
           </DropdownMenuGroup>
 
           <DropdownMenuSeparator className="bg-[#30363d]" />
