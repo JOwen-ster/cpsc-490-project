@@ -1,0 +1,36 @@
+services:
+  gitgraph-postgres-db:
+    image: postgres:16
+    container_name: gitgraph-postgres-db
+    env_file:
+      - ./.env.local
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d appdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  gitgraph-nextjs-webapp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gitgraph-nextjs-webapp
+    env_file:
+      - ./.env.local
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    command: ["pnpm", "dev"]
+    depends_on:
+      gitgraph-postgres-db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
