@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import SignOutButton from "@/components/signout-button";
+import DashboardBoard from "@/components/dashboard-board";
 
 interface Props {
   params: Promise<{ username: string }>;
@@ -18,7 +19,7 @@ export default async function DashboardPage({ params }: Props) {
   const repositories = ["test#1", "test#2"];
 
   return (
-    <div className="flex h-screen w-full bg-[#0d1117] text-[#e6edf3] overflow-hidden">
+    <div className="flex h-screen w-full bg-[#0d1117] text-[#e6edf3] overflow-hidden font-[family-name:var(--font-geist-sans)]">
       {/* 1. Sidebar */}
       <div className="w-64 border-r border-[#30363d] bg-[#010409] flex flex-col hidden md:flex">
         <div className="p-4">
@@ -50,46 +51,12 @@ export default async function DashboardPage({ params }: Props) {
 
       {/* 2. Main Content */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#0d1117]">
-        <header className="h-14 border-b border-[#30363d] flex items-center px-6">
+        <header className="h-14 border-b border-[#30363d] flex items-center px-6 shrink-0">
           <span className="font-semibold text-[#f0f6fc]">Issues Board</span>
         </header>
 
-        <main className="flex-1 overflow-x-auto p-6 flex gap-6">
-          {/* To Do Column */}
-          <div className="w-72 flex-shrink-0 flex flex-col gap-4">
-            <div className="flex items-center gap-2 px-1">
-              <div className="w-2 h-2 rounded-full bg-[#8b949e]"></div>
-              <h3 className="font-medium text-sm text-[#f0f6fc]">To Do</h3>
-            </div>
-            <div className="space-y-3">
-              <div className="bg-[#161b22] border border-[#30363d] p-4 rounded-lg shadow-sm">
-                <p className="text-sm font-medium">#1 Fix sidebar rendering</p>
-                <p className="text-xs text-[#8b949e] mt-1">@lucas • 2h ago</p>
-              </div>
-            </div>
-          </div>
-
-          {/* In Progress Column */}
-          <div className="w-72 flex-shrink-0 flex flex-col gap-4">
-            <div className="flex items-center gap-2 px-1">
-              <div className="w-2 h-2 rounded-full bg-[#d29922]"></div>
-              <h3 className="font-medium text-sm text-[#f0f6fc]">
-                In Progress
-              </h3>
-            </div>
-            <div className="bg-[#161b22] border border-[#30363d] p-4 rounded-lg shadow-sm border-l-4 border-l-[#d29922]">
-              <p className="text-sm font-medium">#4 Integrating Auth.js</p>
-              <p className="text-xs text-[#8b949e] mt-1">@lucas • 5h ago</p>
-            </div>
-          </div>
-
-          {/* Done Column */}
-          <div className="w-72 flex-shrink-0 flex flex-col gap-4">
-            <div className="flex items-center gap-2 px-1">
-              <div className="w-2 h-2 rounded-full bg-[#3fb950]"></div>
-              <h3 className="font-medium text-sm text-[#f0f6fc]">Done</h3>
-            </div>
-          </div>
+        <main className="flex-1 min-h-0">
+          <DashboardBoard />
         </main>
       </div>
 
