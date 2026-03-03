@@ -5,7 +5,8 @@ import DashboardBoard, { Column, CardData } from "@/components/dashboard-board";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { ensureUserAndSeed, initializeSchema } from "@/lib/schema";
-import { Plus } from "lucide-react";
+import { Plus, RefreshCcw, Trash2 } from "lucide-react";
+import { refreshRepositoryIssues, deleteRepository } from "@/app/actions";
 
 interface Props {
   params: Promise<{ username: string }>;
@@ -30,9 +31,10 @@ export default async function DashboardPage({ params, searchParams }: Props) {
   });
 
   // Fetch repositories
+  // TODO: move to an ORM
   const reposResult = await db.query(
     `SELECT id, name FROM repositories WHERE user_id = $1 ORDER BY created_at DESC`,
-    [session.user.id],
+    [session.user.id]
   );
   const repositories = reposResult.rows;
 
@@ -42,9 +44,18 @@ export default async function DashboardPage({ params, searchParams }: Props) {
     selectedRepoId = repositories[0].id.toString();
   }
 
+  // Handle Refresh Action
+  async function handleRefresh() {
+    "use server";
+    if (selectedRepoId) {
+      await refreshRepositoryIssues(selectedRepoId);
+    }
+  }
+
   // Fetch issues for selected repo
   let issues: any[] = [];
   if (selectedRepoId) {
+    // TODO: move to an ORM
     const issuesResult = await db.query(
       `SELECT i.*, 
         COALESCE(
@@ -59,7 +70,7 @@ export default async function DashboardPage({ params, searchParams }: Props) {
        WHERE i.repository_id = $1
        GROUP BY i.id
        ORDER BY i.created_at DESC`,
-      [parseInt(selectedRepoId)],
+      [parseInt(selectedRepoId)]
     );
     issues = issuesResult.rows;
   }
@@ -113,23 +124,43 @@ export default async function DashboardPage({ params, searchParams }: Props) {
           <nav className="flex-1 space-y-1 overflow-y-auto max-h-[calc(100vh-200px)]">
             {repositories.map((repo) => {
               const isActive = selectedRepoId === repo.id.toString();
+              const deleteRepoAction = async () => {
+                "use server";
+                await deleteRepository(repo.id.toString());
+              };
+              
               return (
-                <Link
-                  key={repo.id}
-                  href={`/dashboard/${username}?repoId=${repo.id}`}
-                  className={`group flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer text-sm transition-colors ${
+                <div 
+                  key={repo.id} 
+                  className={`group flex items-center justify-between px-3 py-2 rounded-md cursor-pointer text-sm transition-colors ${
                     isActive
-                      ? "bg-[#1f242c] text-[#f0f6fc] font-medium"
-                      : "hover:bg-[#1c2128] text-[#c9d1d9]"
+                      ? "bg-[#1f242c]"
+                      : "hover:bg-[#1c2128]"
                   }`}
                 >
-                  <span
-                    className={`opacity-40 group-hover:opacity-100 ${isActive ? "opacity-100" : ""}`}
+                  <Link
+                    href={`/dashboard/${username}?repoId=${repo.id}`}
+                    className={`flex-1 flex items-center gap-2 min-w-0 ${
+                      isActive ? "text-[#f0f6fc] font-medium" : "text-[#c9d1d9]"
+                    }`}
                   >
-                    📁
-                  </span>
-                  <span className="truncate">{repo.name}</span>
-                </Link>
+                    <span
+                      className={`opacity-40 group-hover:opacity-100 ${isActive ? "opacity-100" : ""}`}
+                    >
+                      📁
+                    </span>
+                    <span className="truncate">{repo.name}</span>
+                  </Link>
+                  <form action={deleteRepoAction}>
+                    <button
+                      type="submit"
+                      className="opacity-0 group-hover:opacity-100 text-[#8b949e] hover:text-[#f85149] transition-all p-1 -mr-1 rounded hover:bg-[#30363d]"
+                      title="Remove Repository"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </form>
+                </div>
               );
             })}
           </nav>
@@ -142,8 +173,20 @@ export default async function DashboardPage({ params, searchParams }: Props) {
 
       {/* 2. Main Content */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#0d1117]">
-        <header className="h-14 border-b border-[#30363d] flex items-center px-6 shrink-0">
+        <header className="h-14 border-b border-[#30363d] flex items-center justify-between px-6 shrink-0">
           <span className="font-semibold text-[#f0f6fc]">Issues Board</span>
+          {selectedRepoId && (
+            <form action={handleRefresh}>
+              <button 
+                type="submit" 
+                className="flex items-center gap-2 text-xs font-medium text-[#8b949e] hover:text-[#f0f6fc] transition-colors p-2 hover:bg-[#1c2128] rounded-md"
+                title="Refresh issues from GitHub"
+              >
+                <RefreshCcw size={14} />
+                Refresh
+              </button>
+            </form>
+          )}
         </header>
 
         <main className="flex-1 min-h-0">

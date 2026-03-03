@@ -1,6 +1,7 @@
 import { db } from "./db";
 
 export async function initializeSchema() {
+  // TODO: move to an ORM
   await db.query(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
@@ -46,6 +47,7 @@ export async function initializeSchema() {
 
 export async function ensureUserAndSeed(user: { id: string; username: string; image?: string }) {
   // Upsert user
+  // TODO: move to an ORM
   await db.query(
     `INSERT INTO users (id, username, avatar_url)
      VALUES ($1, $2, $3)
@@ -56,6 +58,7 @@ export async function ensureUserAndSeed(user: { id: string; username: string; im
   );
 
   // Check if user has any repositories
+  // TODO: move to an ORM
   const reposResult = await db.query(
     `SELECT id FROM repositories WHERE user_id = $1 LIMIT 1`,
     [user.id]
@@ -63,6 +66,7 @@ export async function ensureUserAndSeed(user: { id: string; username: string; im
 
   if (reposResult.rowCount === 0) {
     // Seed default repository
+    // TODO: move to an ORM
     const repoInsert = await db.query(
       `INSERT INTO repositories (user_id, name, description)
        VALUES ($1, $2, $3) RETURNING id`,
@@ -71,6 +75,7 @@ export async function ensureUserAndSeed(user: { id: string; username: string; im
     const repoId = repoInsert.rows[0].id;
 
     // Seed default tags
+    // TODO: move to an ORM
     const tagsInsert = await db.query(
       `INSERT INTO tags (repository_id, name, color)
        VALUES 
@@ -87,6 +92,7 @@ export async function ensureUserAndSeed(user: { id: string; username: string; im
     }, {} as Record<string, number>);
 
     // Seed default issues
+    // TODO: move to an ORM
     const issuesInsert = await db.query(
       `INSERT INTO issues (repository_id, title, description, status, author)
        VALUES 
@@ -104,12 +110,14 @@ export async function ensureUserAndSeed(user: { id: string; username: string; im
 
     // Link issue tags
     if (tagMap['bug'] && issuesMap['Fix sidebar rendering']) {
+      // TODO: move to an ORM
       await db.query(
         `INSERT INTO issue_tags (issue_id, tag_id) VALUES ($1, $2)`,
         [issuesMap['Fix sidebar rendering'], tagMap['bug']]
       );
     }
     if (tagMap['enhancement'] && issuesMap['Integrating Auth.js']) {
+      // TODO: move to an ORM
       await db.query(
         `INSERT INTO issue_tags (issue_id, tag_id) VALUES ($1, $2)`,
         [issuesMap['Integrating Auth.js'], tagMap['enhancement']]

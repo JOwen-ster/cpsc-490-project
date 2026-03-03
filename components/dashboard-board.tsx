@@ -16,6 +16,8 @@ import {
   KanbanBoardExtraMargin,
 } from "@/components/kanban";
 
+import { updateIssueStatus } from "@/app/actions";
+
 export interface CardData {
   id: string;
   title: string;
@@ -69,6 +71,10 @@ const INITIAL_COLUMNS: Column[] = [
 export default function DashboardBoard({ initialColumns = INITIAL_COLUMNS }: { initialColumns?: Column[] }) {
   const [columns, setColumns] = useState<Column[]>(initialColumns);
 
+  React.useEffect(() => {
+    setColumns(initialColumns);
+  }, [initialColumns]);
+
   const handleDropOverColumn = (columnId: string, dataTransferData: string) => {
     const draggedCard = JSON.parse(dataTransferData) as CardData;
 
@@ -90,6 +96,9 @@ export default function DashboardBoard({ initialColumns = INITIAL_COLUMNS }: { i
         return col;
       });
     });
+
+    // Fire and forget server action to persist status
+    updateIssueStatus(draggedCard.id, columnId).catch(console.error);
   };
 
   return (

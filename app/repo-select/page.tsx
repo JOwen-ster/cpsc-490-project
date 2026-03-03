@@ -44,13 +44,15 @@ export default async function RepoSelectPage() {
   async function addRepo(formData: FormData) {
     "use server";
     const session = await auth();
-    if (!session?.user?.id) return;
+    if (!session?.user?.id || !session?.accessToken) return;
 
     const name = formData.get("repoName") as string;
+    const fullName = formData.get("repoFullName") as string;
     const description = (formData.get("description") as string) || "";
 
-    if (!name) return;
+    if (!name || !fullName) return;
 
+    // TODO: move to an ORM
     const insertResult = await db.query(
       `INSERT INTO repositories (user_id, name, description)
        VALUES ($1, $2, $3)
@@ -60,6 +62,67 @@ export default async function RepoSelectPage() {
     );
 
     const newRepoId = insertResult.rows[0].id;
+
+    // Fetch issues from GitHub API
+    const issuesRes = await fetch(`https://api.github.com/repos/${fullName}/issues?state=open&per_page=100`, {
+      headers: {
+        Authorization: `Bearer ${session.accessToken}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+      cache: 'no-store'
+    });
+
+    if (issuesRes.ok) {
+      const issues = await issuesRes.json();
+
+      // Clear existing issues to prevent duplicates on re-import
+      // TODO: move to an ORM
+      await db.query(`DELETE FROM issues WHERE repository_id = $1`, [newRepoId]);
+
+      for (const issue of issues) {
+        if (issue.pull_request) continue; // Skip pull requests
+
+        // TODO: move to an ORM
+        const issueInsert = await db.query(
+          `INSERT INTO issues (repository_id, title, description, status, author, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           RETURNING id`,
+          [
+            newRepoId,
+            issue.title,
+            issue.body || "",
+            "todo",
+            `@${issue.user.login}`,
+            issue.created_at,
+            issue.updated_at
+          ]
+        );
+        const newIssueId = issueInsert.rows[0].id;
+
+        if (issue.labels && issue.labels.length > 0) {
+          for (const label of issue.labels) {
+            // TODO: move to an ORM
+            const tagInsert = await db.query(
+              `INSERT INTO tags (repository_id, name, color)
+               VALUES ($1, $2, $3)
+               ON CONFLICT (repository_id, name) DO UPDATE SET color = EXCLUDED.color
+               RETURNING id`,
+              [newRepoId, label.name, `#${label.color || '8b949e'}`]
+            );
+            const newTagId = tagInsert.rows[0].id;
+
+            // TODO: move to an ORM
+            await db.query(
+              `INSERT INTO issue_tags (issue_id, tag_id)
+               VALUES ($1, $2)
+               ON CONFLICT DO NOTHING`,
+              [newIssueId, newTagId]
+            );
+          }
+        }
+      }
+    }
+
     redirect(`/dashboard/${session.user.username}?repoId=${newRepoId}`);
   }
 
@@ -96,6 +159,7 @@ export default async function RepoSelectPage() {
             {githubRepos.map((repo) => (
               <form key={repo.id} action={addRepo}>
                 <input type="hidden" name="repoName" value={repo.name} />
+                <input type="hidden" name="repoFullName" value={repo.full_name} />
                 <input type="hidden" name="description" value={repo.description || ""} />
                 <DropdownMenuItem asChild className="focus:bg-[#1f6feb] focus:text-white cursor-pointer px-3 py-2 w-full group">
                   <button type="submit" className="w-full text-left flex flex-col items-start gap-1">
