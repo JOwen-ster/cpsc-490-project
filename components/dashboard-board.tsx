@@ -16,14 +16,15 @@ import {
   KanbanBoardExtraMargin,
 } from "@/components/kanban";
 
-interface CardData {
+export interface CardData {
   id: string;
   title: string;
   author: string;
   time: string;
+  tags?: { name: string; color: string }[];
 }
 
-interface Column {
+export interface Column {
   id: string;
   title: string;
   color: "gray" | "yellow" | "green" | "primary";
@@ -65,8 +66,8 @@ const INITIAL_COLUMNS: Column[] = [
   },
 ];
 
-export default function DashboardBoard() {
-  const [columns, setColumns] = useState<Column[]>(INITIAL_COLUMNS);
+export default function DashboardBoard({ initialColumns = INITIAL_COLUMNS }: { initialColumns?: Column[] }) {
+  const [columns, setColumns] = useState<Column[]>(initialColumns);
 
   const handleDropOverColumn = (columnId: string, dataTransferData: string) => {
     const draggedCard = JSON.parse(dataTransferData) as CardData;
@@ -127,6 +128,19 @@ export default function DashboardBoard() {
                     <KanbanBoardCardDescription className="text-[#8b949e] text-xs mt-1">
                       {card.author} • {card.time}
                     </KanbanBoardCardDescription>
+                    {card.tags && card.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {card.tags.map((tag) => (
+                          <span
+                            key={tag.name}
+                            className="px-2 py-0.5 rounded-full text-[10px] font-medium border border-transparent"
+                            style={{ backgroundColor: `${tag.color}20`, color: tag.color, borderColor: `${tag.color}40` }}
+                          >
+                            {tag.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </KanbanBoardCard>
                 </KanbanBoardColumnListItem>
               ))}
