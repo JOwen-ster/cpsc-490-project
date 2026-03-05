@@ -34,7 +34,7 @@ export default async function DashboardPage({ params, searchParams }: Props) {
   // TODO: move to an ORM
   const reposResult = await db.query(
     `SELECT id, name FROM repositories WHERE user_id = $1 ORDER BY created_at DESC`,
-    [session.user.id]
+    [session.user.id],
   );
   const repositories = reposResult.rows;
 
@@ -70,7 +70,7 @@ export default async function DashboardPage({ params, searchParams }: Props) {
        WHERE i.repository_id = $1
        GROUP BY i.id
        ORDER BY i.created_at DESC`,
-      [parseInt(selectedRepoId)]
+      [parseInt(selectedRepoId)],
     );
     issues = issuesResult.rows;
   }
@@ -83,9 +83,10 @@ export default async function DashboardPage({ params, searchParams }: Props) {
   ];
 
   issues.forEach((issue) => {
+    const displayNum = issue.issue_number || issue.id;
     const card: CardData = {
       id: issue.id.toString(),
-      title: `#${issue.id} ${issue.title}`,
+      title: `#${displayNum} ${issue.title}`,
       author: issue.author,
       time: new Date(issue.created_at).toLocaleDateString(), // or time ago
       tags: issue.tags,
@@ -128,14 +129,12 @@ export default async function DashboardPage({ params, searchParams }: Props) {
                 "use server";
                 await deleteRepository(repo.id.toString());
               };
-              
+
               return (
-                <div 
-                  key={repo.id} 
+                <div
+                  key={repo.id}
                   className={`group flex items-center justify-between px-3 py-2 rounded-md cursor-pointer text-sm transition-colors ${
-                    isActive
-                      ? "bg-[#1f242c]"
-                      : "hover:bg-[#1c2128]"
+                    isActive ? "bg-[#1f242c]" : "hover:bg-[#1c2128]"
                   }`}
                 >
                   <Link
@@ -177,8 +176,8 @@ export default async function DashboardPage({ params, searchParams }: Props) {
           <span className="font-semibold text-[#f0f6fc]">Issues Board</span>
           {selectedRepoId && (
             <form action={handleRefresh}>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="flex items-center gap-2 text-xs font-medium text-[#8b949e] hover:text-[#f0f6fc] transition-colors p-2 hover:bg-[#1c2128] rounded-md"
                 title="Refresh issues from GitHub"
               >
