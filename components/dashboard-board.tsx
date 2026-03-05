@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useJsLoaded } from "@/hooks/use-js-loaded";
 import {
   KanbanBoard,
   KanbanBoardProvider,
@@ -70,6 +72,7 @@ const INITIAL_COLUMNS: Column[] = [
 
 export default function DashboardBoard({ initialColumns = INITIAL_COLUMNS }: { initialColumns?: Column[] }) {
   const [columns, setColumns] = useState<Column[]>(initialColumns);
+  const router = useRouter();
 
   React.useEffect(() => {
     setColumns(initialColumns);
@@ -98,7 +101,12 @@ export default function DashboardBoard({ initialColumns = INITIAL_COLUMNS }: { i
     });
 
     // Fire and forget server action to persist status
-    updateIssueStatus(draggedCard.id, columnId).catch(console.error);
+    updateIssueStatus(draggedCard.id, columnId)
+      .then(() => {
+        // Trigger server-side re-render to sync the graph view
+        router.refresh();
+      })
+      .catch(console.error);
   };
 
   return (
@@ -135,7 +143,7 @@ export default function DashboardBoard({ initialColumns = INITIAL_COLUMNS }: { i
                       {card.title}
                     </KanbanBoardCardTitle>
                     <KanbanBoardCardDescription className="text-[#8b949e] text-xs mt-1">
-                      {card.author} • {card.time}
+                      {card.author} • <ClientDate date={card.time} />
                     </KanbanBoardCardDescription>
                     {card.tags && card.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
@@ -160,4 +168,14 @@ export default function DashboardBoard({ initialColumns = INITIAL_COLUMNS }: { i
       </KanbanBoard>
     </KanbanBoardProvider>
   );
+}
+
+function ClientDate({ date }: { date: string }) {
+  const isLoaded = useJsLoaded();
+  // Don't render formatting until JS is loaded to match server HTML exactly
+  if (!isLoaded) return <span>{date.includes('T') ? date.split('T')[0] : date}</span>;
+  
+  // After JS loads, format it properly
+  const d = new Date(date);
+  return <span>{isNaN(d.getTime()) ? date : d.toLocaleDateString()}</span>;
 }
