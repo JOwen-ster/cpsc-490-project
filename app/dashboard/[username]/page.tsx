@@ -36,7 +36,7 @@ export default async function DashboardPage({ params, searchParams }: Props) {
   // TODO: move to an ORM
   const reposResult = await db.query(
     `SELECT id, name FROM repositories WHERE user_id = $1 ORDER BY created_at DESC`,
-    [session.user.id]
+    [session.user.id],
   );
   const repositories = reposResult.rows;
 
@@ -72,7 +72,7 @@ export default async function DashboardPage({ params, searchParams }: Props) {
        WHERE i.repository_id = $1
        GROUP BY i.id
        ORDER BY i.created_at DESC`,
-      [parseInt(selectedRepoId)]
+      [parseInt(selectedRepoId)],
     );
     issues = issuesResult.rows;
   }
@@ -85,9 +85,10 @@ export default async function DashboardPage({ params, searchParams }: Props) {
   ];
 
   issues.forEach((issue) => {
+    const displayNum = issue.issue_number || issue.id;
     const card: CardData = {
       id: issue.id.toString(),
-      title: `#${issue.id} ${issue.title}`,
+      title: `#${displayNum} ${issue.title}`,
       author: issue.author,
       time: issue.created_at.toISOString(),
       tags: issue.tags,

@@ -84,11 +84,12 @@ export default async function RepoSelectPage() {
 
         // TODO: move to an ORM
         const issueInsert = await db.query(
-          `INSERT INTO issues (repository_id, title, description, status, author, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)
+          `INSERT INTO issues (repository_id, issue_number, title, description, status, author, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
            RETURNING id`,
           [
             newRepoId,
+            issue.number,
             issue.title,
             issue.body || "",
             "todo",

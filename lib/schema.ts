@@ -21,6 +21,7 @@ export async function initializeSchema() {
     CREATE TABLE IF NOT EXISTS issues (
       id SERIAL PRIMARY KEY,
       repository_id INTEGER NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+      issue_number INTEGER,
       title TEXT NOT NULL,
       description TEXT,
       status TEXT NOT NULL DEFAULT 'todo', -- 'todo', 'inprogress', 'done'
@@ -28,6 +29,16 @@ export async function initializeSchema() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    -- Safe migration for existing schemas
+    DO $$ 
+    BEGIN 
+      BEGIN
+        ALTER TABLE issues ADD COLUMN issue_number INTEGER;
+      EXCEPTION
+        WHEN duplicate_column THEN NULL;
+      END;
+    END $$;
 
     CREATE TABLE IF NOT EXISTS tags (
       id SERIAL PRIMARY KEY,
@@ -45,7 +56,11 @@ export async function initializeSchema() {
   `);
 }
 
-export async function ensureUserAndSeed(user: { id: string; username: string; image?: string }) {
+export async function ensureUserAndSeed(user: {
+  id: string;
+  username: string;
+  image?: string;
+}) {
   // Upsert user
   // TODO: move to an ORM
   await db.query(
@@ -54,74 +69,6 @@ export async function ensureUserAndSeed(user: { id: string; username: string; im
      ON CONFLICT (id) DO UPDATE SET
        username = EXCLUDED.username,
        avatar_url = EXCLUDED.avatar_url`,
-    [user.id, user.username, user.image || null]
+    [user.id, user.username, user.image || null],
   );
-
-  // Check if user has any repositories
-  // TODO: move to an ORM
-  const reposResult = await db.query(
-    `SELECT id FROM repositories WHERE user_id = $1 LIMIT 1`,
-    [user.id]
-  );
-
-  if (reposResult.rowCount === 0) {
-    // Seed default repository
-    // TODO: move to an ORM
-    const repoInsert = await db.query(
-      `INSERT INTO repositories (user_id, name, description)
-       VALUES ($1, $2, $3) RETURNING id`,
-      [user.id, 'cpsc-490', 'Default project repository']
-    );
-    const repoId = repoInsert.rows[0].id;
-
-    // Seed default tags
-    // TODO: move to an ORM
-    const tagsInsert = await db.query(
-      `INSERT INTO tags (repository_id, name, color)
-       VALUES 
-         ($1, 'bug', '#d73a4a'),
-         ($1, 'enhancement', '#a2eeef'),
-         ($1, 'documentation', '#0075ca')
-       RETURNING id, name`,
-      [repoId]
-    );
-    
-    const tagMap = tagsInsert.rows.reduce((acc, row) => {
-      acc[row.name] = row.id;
-      return acc;
-    }, {} as Record<string, number>);
-
-    // Seed default issues
-    // TODO: move to an ORM
-    const issuesInsert = await db.query(
-      `INSERT INTO issues (repository_id, title, description, status, author)
-       VALUES 
-         ($1, 'Fix sidebar rendering', 'Sidebar is missing on mobile.', 'todo', $2),
-         ($1, 'Integrating Auth.js', 'Setup GitHub OAuth.', 'inprogress', $2),
-         ($1, 'Create database schema', 'Plan and implement Postgres schema.', 'done', $2)
-       RETURNING id, title`,
-      [repoId, `@\${user.username}`]
-    );
-
-    const issuesMap = issuesInsert.rows.reduce((acc, row) => {
-      acc[row.title] = row.id;
-      return acc;
-    }, {} as Record<string, number>);
-
-    // Link issue tags
-    if (tagMap['bug'] && issuesMap['Fix sidebar rendering']) {
-      // TODO: move to an ORM
-      await db.query(
-        `INSERT INTO issue_tags (issue_id, tag_id) VALUES ($1, $2)`,
-        [issuesMap['Fix sidebar rendering'], tagMap['bug']]
-      );
-    }
-    if (tagMap['enhancement'] && issuesMap['Integrating Auth.js']) {
-      // TODO: move to an ORM
-      await db.query(
-        `INSERT INTO issue_tags (issue_id, tag_id) VALUES ($1, $2)`,
-        [issuesMap['Integrating Auth.js'], tagMap['enhancement']]
-      );
-    }
-  }
 }
