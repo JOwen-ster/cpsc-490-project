@@ -27,7 +27,7 @@ services:
       - .:/app
       - /app/node_modules
       - /app/.next
-    command: ["pnpm", "dev"]
+    command: ["sh", "-c", "pnpm exec prisma db push && pnpm dev"]
     depends_on:
       gitgraph-postgres-db:
         condition: service_healthy

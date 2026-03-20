@@ -1,0 +1,80 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String       @id
+  username  String
+  avatarUrl String?      @map("avatar_url")
+  repositories Repository[]
+
+  @@map("users")
+}
+
+model Repository {
+  id          Int      @id @default(autoincrement())
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  issues      Issue[]
+  tags        Tag[]
+
+  @@unique([userId, name])
+  @@map("repositories")
+}
+
+model Issue {
+  id           Int      @id @default(autoincrement())
+  repositoryId Int      @map("repository_id")
+  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  issueNumber  Int?     @map("issue_number")
+  title        String
+  description  String?
+  status       String   @default("todo")
+  author       String
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  issueTags    IssueTag[]
+
+  @@map("issues")
+}
+
+model Tag {
+  id           Int      @id @default(autoincrement())
+  repositoryId Int      @map("repository_id")
+  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  name         String
+  color        String   @default("#8b949e")
+  issueTags    IssueTag[]
+
+  @@unique([repositoryId, name])
+  @@map("tags")
+}
+
+model IssueTag {
+  issueId Int   @map("issue_id")
+  tagId   Int   @map("tag_id")
+  issue   Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  tag     Tag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([issueId, tagId])
+  @@map("issue_tags")
+}
+
+model TestItem {
+  id        Int      @id @default(autoincrement())
+  name      String
+  note      String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("test_items")
+}

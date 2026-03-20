@@ -1,13 +1,24 @@
+import { PrismaClient } from "@prisma/client";
 import { Pool } from "pg";
+import { PrismaPg } from "@prisma/adapter-pg";
 
-const globalForDb = globalThis as unknown as {
-  db: Pool | undefined;
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
 };
 
-export const db =
-  globalForDb.db ??
-  new Pool({
-    connectionString: process.env.DATABASE_URL,
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+const adapter = new PrismaPg(pool as any);
+
+export const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({
+    adapter,
+    log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
   });
 
-if (process.env.NODE_ENV !== "production") globalForDb.db = db;
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+
+// Temporary export of the pg pool as 'db' to maintain compatibility until Phase 2 is complete
+export const db = pool;

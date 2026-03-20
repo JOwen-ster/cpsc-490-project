@@ -5,10 +5,11 @@ import DashboardBoard, { Column, CardData } from "@/components/dashboard-board";
 import DashboardContainer from "@/components/dashboard-container";
 import IssueGraph from "@/components/issue-graph";
 import Link from "next/link";
-import { db } from "@/lib/db";
-import { ensureUserAndSeed, initializeSchema } from "@/lib/schema";
+import { prisma } from "@/lib/db";
+import { ensureUserAndSeed } from "@/lib/schema";
 import { Plus, RefreshCcw, Trash2 } from "lucide-react";
 import { refreshRepositoryIssues, deleteRepository } from "@/app/actions";
+import { mapIssuesToKanbanColumns } from "@/lib/utils/kanban-mapper";
 
 interface Props {
   params: Promise<{ username: string }>;
@@ -24,21 +25,18 @@ export default async function DashboardPage({ params, searchParams }: Props) {
     redirect("/");
   }
 
-  // Ensure DB schema and user exists
-  await initializeSchema();
+  // Ensure user exists
   await ensureUserAndSeed({
     id: session.user.id!,
     username: session.user.username!,
     image: session.user.image!,
   });
 
-  // Fetch repositories
-  // TODO: move to an ORM
-  const reposResult = await db.query(
-    `SELECT id, name FROM repositories WHERE user_id = $1 ORDER BY created_at DESC`,
-    [session.user.id],
-  );
-  const repositories = reposResult.rows;
+  // Fetch repositories using Prisma
+  const repositories = await prisma.repository.findMany({
+    where: { userId: session.user.id },
+    orderBy: { createdAt: "desc" },
+  });
 
   // Determine selected repo
   let selectedRepoId = resolvedSearchParams.repoId as string | undefined;
@@ -54,53 +52,37 @@ export default async function DashboardPage({ params, searchParams }: Props) {
     }
   }
 
-  // Fetch issues for selected repo
+  // Fetch issues for selected repo using Prisma
   let issues: any[] = [];
   if (selectedRepoId) {
-    // TODO: move to an ORM
-    const issuesResult = await db.query(
-      `SELECT i.*, 
-        COALESCE(
-          json_agg(
-            json_build_object('name', t.name, 'color', t.color)
-          ) FILTER (WHERE t.id IS NOT NULL),
-          '[]'
-        ) as tags
-       FROM issues i
-       LEFT JOIN issue_tags it ON i.id = it.issue_id
-       LEFT JOIN tags t ON it.tag_id = t.id
-       WHERE i.repository_id = $1
-       GROUP BY i.id
-       ORDER BY i.created_at DESC`,
-      [parseInt(selectedRepoId)],
-    );
-    issues = issuesResult.rows;
+    const issuesData = await prisma.issue.findMany({
+      where: {
+        repositoryId: parseInt(selectedRepoId),
+      },
+      include: {
+        issueTags: {
+          include: {
+            tag: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    // Transform issues to include tags in the format expected by the UI
+    issues = issuesData.map((issue) => ({
+      ...issue,
+      tags: issue.issueTags.map((it) => ({
+        name: it.tag.name,
+        color: it.tag.color,
+      })),
+    }));
   }
 
-  // Map issues to columns
-  const columns: Column[] = [
-    { id: "todo", title: "To Do", color: "gray", cards: [] },
-    { id: "inprogress", title: "In Progress", color: "yellow", cards: [] },
-    { id: "done", title: "Done", color: "green", cards: [] },
-  ];
-
-  issues.forEach((issue) => {
-    const displayNum = issue.issue_number || issue.id;
-    const card: CardData = {
-      id: issue.id.toString(),
-      title: `#${displayNum} ${issue.title}`,
-      author: issue.author,
-      time: issue.created_at.toISOString(),
-      tags: issue.tags,
-    };
-
-    const col = columns.find((c) => c.id === issue.status);
-    if (col) {
-      col.cards.push(card);
-    } else {
-      columns[0].cards.push(card);
-    }
-  });
+  // Map issues to columns using the extracted mapper
+  const columns = mapIssuesToKanbanColumns(issues);
 
   return (
     <DashboardContainer
