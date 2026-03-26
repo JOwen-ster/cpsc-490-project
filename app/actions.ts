@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { parseGitHubLink } from "@/lib/utils";
+import { groupIssuesWithGemini } from "@/lib/ai";
 
 /**
  * Shared logic to import a repository and its issues.
@@ -380,6 +381,56 @@ export async function deleteRepository(repoId: string) {
       userId: session.user.id,
     },
   });
+
+  revalidatePath(`/dashboard/${session.user.username}`);
+  return { success: true };
+}
+
+export async function groupIssuesWithAi(repoId: string) {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
+  const parsedRepoId = parseInt(repoId);
+
+  // Fetch all issues for this repo
+  const issues = await prisma.issue.findMany({
+    where: { repositoryId: parsedRepoId },
+    select: { id: true, title: true, description: true },
+  });
+
+  if (issues.length === 0) {
+    return { success: false, error: "No issues to group" };
+  }
+
+  // Use Gemini to group them
+  const result = await groupIssuesWithGemini(issues);
+
+  // Update DB: Clear existing groups for this repo
+  await prisma.group.deleteMany({ where: { repositoryId: parsedRepoId } });
+
+  // Create new groups and update issues
+  for (const groupData of result.groups) {
+    const group = await prisma.group.create({
+      data: {
+        repositoryId: parsedRepoId,
+        name: groupData.name,
+        description: groupData.description,
+      },
+    });
+
+    for (const issueRef of groupData.issueIds) {
+      await prisma.issue.update({
+        where: { id: issueRef.id },
+        data: {
+          groupId: group.id,
+          priority: issueRef.priority,
+        },
+      });
+    }
+  }
 
   revalidatePath(`/dashboard/${session.user.username}`);
   return { success: true };

@@ -27,9 +27,21 @@ model Repository {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
   issues      Issue[]
   tags        Tag[]
+  groups      Group[]
 
   @@unique([userId, name])
   @@map("repositories")
+}
+
+model Group {
+  id           Int        @id @default(autoincrement())
+  repositoryId Int        @map("repository_id")
+  repository   Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  issues       Issue[]
+
+  @@map("groups")
 }
 
 model Issue {
@@ -44,6 +56,10 @@ model Issue {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   issueTags    IssueTag[]
+
+  groupId      Int?       @map("group_id")
+  group        Group?     @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  priority     Int        @default(0)
 
   @@map("issues")
 }

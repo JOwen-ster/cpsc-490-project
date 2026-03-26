@@ -7,9 +7,9 @@ import IssueGraph from "@/components/issue-graph";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { ensureUserAndSeed } from "@/lib/schema";
-import { Plus, RefreshCcw, Trash2 } from "lucide-react";
-import { refreshRepositoryIssues, deleteRepository } from "@/app/actions";
-import { mapIssuesToKanbanColumns } from "@/lib/utils/kanban-mapper";
+import { Plus, RefreshCcw, Trash2, Sparkles } from "lucide-react";
+import { refreshRepositoryIssues, deleteRepository, groupIssuesWithAi } from "@/app/actions";
+import { mapIssuesToKanbanColumns, mapIssuesToGroupColumns } from "@/lib/utils/kanban-mapper";
 
 interface Props {
   params: Promise<{ username: string }>;
@@ -52,24 +52,40 @@ export default async function DashboardPage({ params, searchParams }: Props) {
     }
   }
 
+  // Handle AI Grouping Action
+  async function handleAiGrouping() {
+    "use server";
+    if (selectedRepoId) {
+      await groupIssuesWithAi(selectedRepoId);
+    }
+  }
+
   // Fetch issues for selected repo using Prisma
   let issues: any[] = [];
+  let groups: any[] = [];
   if (selectedRepoId) {
-    const issuesData = await prisma.issue.findMany({
-      where: {
-        repositoryId: parseInt(selectedRepoId),
-      },
-      include: {
-        issueTags: {
-          include: {
-            tag: true,
+    const [issuesData, groupsData] = await Promise.all([
+      prisma.issue.findMany({
+        where: {
+          repositoryId: parseInt(selectedRepoId),
+        },
+        include: {
+          issueTags: {
+            include: {
+              tag: true,
+            },
           },
         },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+        orderBy: [
+          { groupId: 'asc' },
+          { priority: 'asc' },
+          { createdAt: 'desc' }
+        ],
+      }),
+      prisma.group.findMany({
+        where: { repositoryId: parseInt(selectedRepoId) }
+      })
+    ]);
 
     // Transform issues to include tags in the format expected by the UI
     issues = issuesData.map((issue) => ({
@@ -79,10 +95,12 @@ export default async function DashboardPage({ params, searchParams }: Props) {
         color: it.tag.color,
       })),
     }));
+    groups = groupsData;
   }
 
-  // Map issues to columns using the extracted mapper
-  const columns = mapIssuesToKanbanColumns(issues);
+  // Map issues to columns using the extracted mappers
+  const kanbanColumns = mapIssuesToKanbanColumns(issues);
+  const groupColumns = mapIssuesToGroupColumns(issues, groups);
 
   return (
     <DashboardContainer
@@ -158,21 +176,36 @@ export default async function DashboardPage({ params, searchParams }: Props) {
       }
       headerActions={
         selectedRepoId && (
-          <form action={handleRefresh}>
-            <button 
-              type="submit" 
-              className="flex items-center gap-2 text-xs font-medium text-[#8b949e] hover:text-[#f0f6fc] transition-colors p-2 hover:bg-[#1c2128] rounded-md"
-              title="Refresh issues from GitHub"
-            >
-              <RefreshCcw size={14} />
-              Refresh
-            </button>
-          </form>
+          <div className="flex items-center gap-2">
+            <form action={handleAiGrouping}>
+              <button 
+                type="submit" 
+                className="flex items-center gap-2 text-xs font-medium text-purple-400 hover:text-purple-300 transition-colors p-2 hover:bg-[#1c2128] rounded-md border border-purple-500/30"
+                title="Group and prioritize issues using AI"
+              >
+                <Sparkles size={14} className="text-purple-400" />
+                AI Grouping
+              </button>
+            </form>
+            <form action={handleRefresh}>
+              <button 
+                type="submit" 
+                className="flex items-center gap-2 text-xs font-medium text-[#8b949e] hover:text-[#f0f6fc] transition-colors p-2 hover:bg-[#1c2128] rounded-md"
+                title="Refresh issues from GitHub"
+              >
+                <RefreshCcw size={14} />
+                Refresh
+              </button>
+            </form>
+          </div>
         )
       }
       main={
         <div className="flex-1 min-h-0 bg-[#0d1117]">
-          <DashboardBoard initialColumns={columns} />
+          <DashboardBoard 
+            initialColumns={kanbanColumns} 
+            groupColumns={groupColumns}
+          />
         </div>
       }
       graph={
