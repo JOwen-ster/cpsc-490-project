@@ -1,109 +1,196 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import SignOutButton from "@/components/signout-button";
+import DashboardBoard, { Column, CardData } from "@/components/dashboard-board";
+import DashboardContainer from "@/components/dashboard-container";
+import IssueGraph from "@/components/issue-graph";
+import Link from "next/link";
+import { prisma } from "@/lib/db";
+import { ensureUserAndSeed } from "@/lib/schema";
+import { Plus, RefreshCcw, Trash2 } from "lucide-react";
+import { refreshRepositoryIssues, deleteRepository } from "@/app/actions";
+import { mapIssuesToKanbanColumns } from "@/lib/utils/kanban-mapper";
 
 interface Props {
   params: Promise<{ username: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-export default async function DashboardPage({ params }: Props) {
+export default async function DashboardPage({ params, searchParams }: Props) {
   const { username } = await params;
+  const resolvedSearchParams = await searchParams;
   const session = await auth();
 
   if (!session || session.user?.username !== username) {
     redirect("/");
   }
 
-  // Mock data for the repo list
-  const repositories = ["test#1", "test#2"];
+  // Ensure user exists
+  await ensureUserAndSeed({
+    id: session.user.id!,
+    username: session.user.username!,
+    image: session.user.image!,
+  });
+
+  // Fetch repositories using Prisma
+  const repositories = await prisma.repository.findMany({
+    where: { userId: session.user.id },
+    orderBy: { createdAt: "desc" },
+  });
+
+  // Determine selected repo
+  let selectedRepoId = resolvedSearchParams.repoId as string | undefined;
+  if (!selectedRepoId && repositories.length > 0) {
+    selectedRepoId = repositories[0].id.toString();
+  }
+
+  // Handle Refresh Action
+  async function handleRefresh() {
+    "use server";
+    if (selectedRepoId) {
+      await refreshRepositoryIssues(selectedRepoId);
+    }
+  }
+
+  // Fetch issues for selected repo using Prisma
+  let issues: any[] = [];
+  if (selectedRepoId) {
+    const issuesData = await prisma.issue.findMany({
+      where: {
+        repositoryId: parseInt(selectedRepoId),
+      },
+      include: {
+        issueTags: {
+          include: {
+            tag: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    // Transform issues to include tags in the format expected by the UI
+    issues = issuesData.map((issue) => ({
+      ...issue,
+      tags: issue.issueTags.map((it) => ({
+        name: it.tag.name,
+        color: it.tag.color,
+      })),
+    }));
+  }
+
+  // Map issues to columns using the extracted mapper
+  const columns = mapIssuesToKanbanColumns(issues);
 
   return (
-    <div className="flex h-screen w-full bg-[#0d1117] text-[#e6edf3] overflow-hidden">
-      {/* 1. Sidebar */}
-      <div className="w-64 border-r border-[#30363d] bg-[#010409] flex flex-col hidden md:flex">
-        <div className="p-4">
-          <div className="font-bold text-lg px-2 text-[#f0f6fc] mb-6">
-            Hello, {session.user?.username}!
-          </div>
+    <DashboardContainer
+      sidebar={
+        <>
+          <div className="p-4">
+            <div className="font-bold text-lg px-2 text-[#f0f6fc] mb-6">
+              Hello, {session.user?.username}!
+            </div>
 
-          <div className="text-xs font-semibold text-[#8b949e] px-2 uppercase tracking-wider mb-3">
-            Repositories
-          </div>
-
-          <nav className="flex-1 space-y-1 overflow-y-auto max-h-[calc(100vh-200px)]">
-            {repositories.map((repo) => (
-              <div
-                key={repo}
-                className="group flex items-center gap-2 px-3 py-2 rounded-md hover:bg-[#1c2128] cursor-pointer text-sm text-[#c9d1d9] transition-colors"
+            <div className="flex items-center justify-between px-2 mb-3">
+              <div className="text-xs font-semibold text-[#8b949e] uppercase tracking-wider">
+                Repositories
+              </div>
+              <Link
+                href="/repo-select"
+                className="text-[#8b949e] hover:text-[#f0f6fc] transition-colors p-1 hover:bg-[#1c2128] rounded-md"
+                title="Add Repository"
               >
-                <span className="opacity-40 group-hover:opacity-100">📁</span>
-                <span className="truncate">{repo}</span>
-              </div>
-            ))}
-          </nav>
-        </div>
-
-        <div className="mt-auto p-4 border-t border-[#30363d]">
-          <SignOutButton />
-        </div>
-      </div>
-
-      {/* 2. Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#0d1117]">
-        <header className="h-14 border-b border-[#30363d] flex items-center px-6">
-          <span className="font-semibold text-[#f0f6fc]">Issues Board</span>
-        </header>
-
-        <main className="flex-1 overflow-x-auto p-6 flex gap-6">
-          {/* To Do Column */}
-          <div className="w-72 flex-shrink-0 flex flex-col gap-4">
-            <div className="flex items-center gap-2 px-1">
-              <div className="w-2 h-2 rounded-full bg-[#8b949e]"></div>
-              <h3 className="font-medium text-sm text-[#f0f6fc]">To Do</h3>
+                <Plus size={14} />
+              </Link>
             </div>
-            <div className="space-y-3">
-              <div className="bg-[#161b22] border border-[#30363d] p-4 rounded-lg shadow-sm">
-                <p className="text-sm font-medium">#1 Fix sidebar rendering</p>
-                <p className="text-xs text-[#8b949e] mt-1">@lucas • 2h ago</p>
-              </div>
-            </div>
+
+            <nav className="flex-1 space-y-1 overflow-y-auto max-h-[calc(100vh-200px)]">
+              {repositories.map((repo) => {
+                const isActive = selectedRepoId === repo.id.toString();
+                const deleteRepoAction = async () => {
+                  "use server";
+                  await deleteRepository(repo.id.toString());
+                };
+                
+                return (
+                  <div 
+                    key={repo.id} 
+                    className={`group flex items-center justify-between px-3 py-2 rounded-md cursor-pointer text-sm transition-colors ${
+                      isActive
+                        ? "bg-[#1f242c]"
+                        : "hover:bg-[#1c2128]"
+                    }`}
+                  >
+                    <Link
+                      href={`/dashboard/${username}?repoId=${repo.id}`}
+                      className={`flex-1 flex items-center gap-2 min-w-0 ${
+                        isActive ? "text-[#f0f6fc] font-medium" : "text-[#c9d1d9]"
+                      }`}
+                    >
+                      <span
+                        className={`opacity-40 group-hover:opacity-100 ${isActive ? "opacity-100" : ""}`}
+                      >
+                        📁
+                      </span>
+                      <span className="truncate">{repo.name}</span>
+                    </Link>
+                    <form action={deleteRepoAction}>
+                      <button
+                        type="submit"
+                        className="opacity-0 group-hover:opacity-100 text-[#8b949e] hover:text-[#f85149] transition-all p-1 -mr-1 rounded hover:bg-[#30363d]"
+                        title="Remove Repository"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </form>
+                  </div>
+                );
+              })}
+            </nav>
           </div>
 
-          {/* In Progress Column */}
-          <div className="w-72 flex-shrink-0 flex flex-col gap-4">
-            <div className="flex items-center gap-2 px-1">
-              <div className="w-2 h-2 rounded-full bg-[#d29922]"></div>
-              <h3 className="font-medium text-sm text-[#f0f6fc]">
-                In Progress
-              </h3>
-            </div>
-            <div className="bg-[#161b22] border border-[#30363d] p-4 rounded-lg shadow-sm border-l-4 border-l-[#d29922]">
-              <p className="text-sm font-medium">#4 Integrating Auth.js</p>
-              <p className="text-xs text-[#8b949e] mt-1">@lucas • 5h ago</p>
-            </div>
+          <div className="mt-auto p-4 border-t border-[#30363d]">
+            <SignOutButton />
           </div>
-
-          {/* Done Column */}
-          <div className="w-72 flex-shrink-0 flex flex-col gap-4">
-            <div className="flex items-center gap-2 px-1">
-              <div className="w-2 h-2 rounded-full bg-[#3fb950]"></div>
-              <h3 className="font-medium text-sm text-[#f0f6fc]">Done</h3>
+        </>
+      }
+      headerActions={
+        selectedRepoId && (
+          <form action={handleRefresh}>
+            <button 
+              type="submit" 
+              className="flex items-center gap-2 text-xs font-medium text-[#8b949e] hover:text-[#f0f6fc] transition-colors p-2 hover:bg-[#1c2128] rounded-md"
+              title="Refresh issues from GitHub"
+            >
+              <RefreshCcw size={14} />
+              Refresh
+            </button>
+          </form>
+        )
+      }
+      main={
+        <div className="flex-1 min-h-0 bg-[#0d1117]">
+          <DashboardBoard initialColumns={columns} />
+        </div>
+      }
+      graph={
+        <div className="flex-1 h-full w-full">
+          {selectedRepoId ? (
+            <IssueGraph 
+              issues={issues} 
+              repoName={repositories.find(r => r.id.toString() === selectedRepoId)?.name || "Repository"} 
+            />
+          ) : (
+            <div className="flex-1 rounded-xl border border-[#30363d] border-dashed flex flex-col items-center justify-center text-[#484f58] p-4 text-center bg-[#010409]">
+              <p className="text-xs italic">
+                Select a repository to see activity metrics and resolution velocity.
+              </p>
             </div>
-          </div>
-        </main>
-      </div>
-
-      {/* 3. Graph Analysis */}
-      <div className="w-80 border-l border-[#30363d] bg-[#0d1117] p-6 hidden lg:flex flex-col">
-        <div className="font-bold text-sm text-[#8b949e] uppercase tracking-wider mb-4">
-          Graph Analysis
+          )}
         </div>
-        <div className="flex-1 rounded-xl border border-[#30363d] border-dashed flex flex-col items-center justify-center text-[#484f58] p-4 text-center">
-          <p className="text-xs italic">
-            Select an issue to see activity metrics and resolution velocity.
-          </p>
-        </div>
-      </div>
-    </div>
+      }
+    />
   );
 }

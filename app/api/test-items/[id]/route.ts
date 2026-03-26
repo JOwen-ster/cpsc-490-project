@@ -1,74 +1,40 @@
-import { Pool } from "pg";
+import { prisma } from "@/lib/db";
+import { NextResponse } from "next/server";
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const { name, note } = await req.json();
 
-async function ensureTable() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS test_items (
-      id SERIAL PRIMARY KEY,
-      name TEXT NOT NULL,
-      note TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
+    const updated = await prisma.testItem.update({
+      where: { id: parseInt(id) },
+      data: { name, note },
+    });
+
+    return NextResponse.json(updated);
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: "Failed to update" }, { status: 500 });
+  }
 }
 
-function parseId(raw: unknown) {
-  const id = Number(raw);
-  return Number.isFinite(id) ? id : null;
-}
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
 
-type Ctx = { params: Promise<{ id: string }> };
+    await prisma.testItem.delete({
+      where: { id: parseInt(id) },
+    });
 
-export async function GET(_req: Request, ctx: Ctx) {
-  await ensureTable();
-  const { id: idRaw } = await ctx.params;
-
-  const id = parseId(idRaw);
-  if (id == null) {
-    return Response.json({ ok: false, error: `invalid id: ${idRaw}` }, { status: 400 });
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: "Failed to delete" }, { status: 500 });
   }
-
-  const r = await pool.query(`SELECT * FROM test_items WHERE id=$1`, [id]);
-  return Response.json({ ok: true, item: r.rows[0] ?? null });
-}
-
-export async function PUT(req: Request, ctx: Ctx) {
-  await ensureTable();
-  const { id: idRaw } = await ctx.params;
-
-  const id = parseId(idRaw);
-  if (id == null) {
-    return Response.json({ ok: false, error: `invalid id: ${idRaw}` }, { status: 400 });
-  }
-
-  const body = await req.json();
-  const name = String(body.name ?? "").trim();
-  const note = body.note == null ? null : String(body.note);
-
-  if (!name) {
-    return Response.json({ ok: false, error: "name is required" }, { status: 400 });
-  }
-
-  const r = await pool.query(
-    `UPDATE test_items SET name=$2, note=$3 WHERE id=$1 RETURNING *`,
-    [id, name, note]
-  );
-
-  return Response.json({ ok: true, item: r.rows[0] ?? null });
-}
-
-export async function DELETE(_req: Request, ctx: Ctx) {
-  await ensureTable();
-  const { id: idRaw } = await ctx.params;
-
-  const id = parseId(idRaw);
-  if (id == null) {
-    return Response.json({ ok: false, error: `invalid id: ${idRaw}` }, { status: 400 });
-  }
-
-  const r = await pool.query(`DELETE FROM test_items WHERE id=$1 RETURNING *`, [id]);
-  return Response.json({ ok: true, deleted: r.rows[0] ?? null });
 }

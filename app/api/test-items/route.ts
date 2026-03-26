@@ -1,39 +1,29 @@
-import { Pool } from "pg";
-
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-
-async function ensureTable() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS test_items (
-      id SERIAL PRIMARY KEY,
-      name TEXT NOT NULL,
-      note TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
-}
+import { prisma } from "@/lib/db";
+import { NextResponse } from "next/server";
 
 export async function GET() {
-  await ensureTable();
-  const r = await pool.query(`SELECT * FROM test_items ORDER BY id DESC LIMIT 200`);
-  return Response.json({ ok: true, items: r.rows });
+  try {
+    const items = await prisma.testItem.findMany({
+      orderBy: { createdAt: "desc" },
+    });
+    return NextResponse.json(items);
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: "Failed to fetch" }, { status: 500 });
+  }
 }
 
 export async function POST(req: Request) {
-  await ensureTable();
-  const body = await req.json();
+  try {
+    const { name, note } = await req.json();
+    if (!name) return NextResponse.json({ error: "Name is required" }, { status: 400 });
 
-  const name = String(body.name ?? "").trim();
-  const note = body.note == null ? null : String(body.note);
-
-  if (!name) {
-    return Response.json({ ok: false, error: "name is required" }, { status: 400 });
+    const newItem = await prisma.testItem.create({
+      data: { name, note },
+    });
+    return NextResponse.json(newItem);
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: "Failed to create" }, { status: 500 });
   }
-
-  const r = await pool.query(
-    `INSERT INTO test_items (name, note) VALUES ($1, $2) RETURNING *`,
-    [name, note]
-  );
-
-  return Response.json({ ok: true, item: r.rows[0] }, { status: 201 });
 }
