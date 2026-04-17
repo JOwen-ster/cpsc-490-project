@@ -16,6 +16,7 @@ export function mapIssuesToKanbanColumns(issues: any[]): Column[] {
       time: issue.createdAt instanceof Date 
         ? issue.createdAt.toISOString() 
         : (issue.created_at instanceof Date ? issue.created_at.toISOString() : new Date(issue.createdAt || issue.created_at).toISOString()),
+      status: issue.status,
       tags: issue.tags,
     };
 
@@ -60,6 +61,7 @@ export function mapIssuesToGroupColumns(issues: any[], groups: any[]): Column[] 
       time: issue.createdAt instanceof Date 
         ? issue.createdAt.toISOString() 
         : (issue.created_at instanceof Date ? issue.created_at.toISOString() : new Date(issue.createdAt || issue.created_at).toISOString()),
+      status: issue.status,
       tags: issue.tags,
     };
 

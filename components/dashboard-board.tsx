@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import React, { useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useJsLoaded } from "@/hooks/use-js-loaded";
 import {
   KanbanBoard,
@@ -20,11 +20,14 @@ import {
 
 import { updateIssueStatus } from "@/app/actions";
 
+import { CheckCircle2 } from "lucide-react";
+
 export interface CardData {
   id: string;
   title: string;
   author: string;
   time: string;
+  status?: string;
   tags?: { name: string; color: string }[];
 }
 
@@ -72,17 +75,25 @@ const INITIAL_COLUMNS: Column[] = [
 
 export default function DashboardBoard({ 
   initialColumns = INITIAL_COLUMNS,
-  groupColumns = []
+  groupColumns = [],
+  currentView = "status"
 }: { 
   initialColumns?: Column[],
-  groupColumns?: Column[]
+  groupColumns?: Column[],
+  currentView?: "status" | "groups"
 }) {
-  const [view, setView] = useState<"status" | "groups">("status");
-  const columns = view === "status" ? initialColumns : groupColumns;
+  const columns = currentView === "status" ? initialColumns : groupColumns;
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const handleViewChange = (newView: "status" | "groups") => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("view", newView);
+    router.push(`?${params.toString()}`);
+  };
 
   const handleDropOverColumn = (columnId: string, dataTransferData: string) => {
-    if (view !== "status") return; // Disable drag/drop for grouped view for now
+    if (currentView !== "status") return; // Disable drag/drop for grouped view for now
 
     const draggedCard = JSON.parse(dataTransferData) as CardData;
 
@@ -102,9 +113,9 @@ export default function DashboardBoard({
         <div className="px-6 pt-4 flex items-center gap-4">
           <div className="flex bg-[#161b22] p-1 rounded-lg border border-[#30363d]">
             <button
-              onClick={() => setView("status")}
+              onClick={() => handleViewChange("status")}
               className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                view === "status" 
+                currentView === "status" 
                   ? "bg-[#30363d] text-[#f0f6fc]" 
                   : "text-[#8b949e] hover:text-[#f0f6fc]"
               }`}
@@ -112,10 +123,10 @@ export default function DashboardBoard({
               Status View
             </button>
             <button
-              onClick={() => setView("groups")}
+              onClick={() => handleViewChange("groups")}
               disabled={groupColumns.length === 0}
               className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                view === "groups" 
+                currentView === "groups" 
                   ? "bg-[#30363d] text-[#f0f6fc]" 
                   : "text-[#8b949e] hover:text-[#f0f6fc]"
               } disabled:opacity-50 disabled:cursor-not-allowed`}
@@ -123,7 +134,7 @@ export default function DashboardBoard({
               AI Groups
             </button>
           </div>
-          {view === "groups" && groupColumns.length > 0 && (
+          {currentView === "groups" && groupColumns.length > 0 && (
             <span className="text-[10px] text-[#8b949e] italic">
               Issues prioritized by AI (1 = highest)
             </span>
@@ -158,9 +169,16 @@ export default function DashboardBoard({
                       data={card}
                       className="bg-[#161b22] border-[#30363d] p-4 rounded-lg shadow-sm w-full relative"
                     >
-                      {view === "groups" && (
-                        <div className="absolute top-2 right-2 bg-purple-500/20 text-purple-400 text-[10px] px-1.5 py-0.5 rounded border border-purple-500/30 font-bold">
-                          #{index + 1}
+                      {currentView === "groups" && (
+                        <div className="absolute top-2 right-2 flex items-center gap-1.5">
+                          {card.status === "done" && (
+                            <div className="bg-[#238636]/20 text-[#3fb950] p-0.5 rounded-full border border-[#238636]/30" title="Completed">
+                              <CheckCircle2 size={12} />
+                            </div>
+                          )}
+                          <div className="bg-purple-500/20 text-purple-400 text-[10px] px-1.5 py-0.5 rounded border border-purple-500/30 font-bold">
+                            #{index + 1}
+                          </div>
                         </div>
                       )}
                       <KanbanBoardCardTitle className="text-[#f0f6fc] text-sm font-medium pr-6">

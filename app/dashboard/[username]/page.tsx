@@ -44,6 +44,8 @@ export default async function DashboardPage({ params, searchParams }: Props) {
     selectedRepoId = repositories[0].id.toString();
   }
 
+  const currentView = resolvedSearchParams.view === "groups" ? "groups" : "status";
+
   // Handle Refresh Action
   async function handleRefresh() {
     "use server";
@@ -205,6 +207,7 @@ export default async function DashboardPage({ params, searchParams }: Props) {
           <DashboardBoard 
             initialColumns={kanbanColumns} 
             groupColumns={groupColumns}
+            currentView={currentView}
           />
         </div>
       }
@@ -214,6 +217,8 @@ export default async function DashboardPage({ params, searchParams }: Props) {
             <IssueGraph 
               issues={issues} 
               repoName={repositories.find(r => r.id.toString() === selectedRepoId)?.name || "Repository"} 
+              viewMode={currentView}
+              groups={groups}
             />
           ) : (
             <div className="flex-1 rounded-xl border border-[#30363d] border-dashed flex flex-col items-center justify-center text-[#484f58] p-4 text-center bg-[#010409]">
