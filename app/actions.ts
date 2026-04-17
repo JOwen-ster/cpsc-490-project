@@ -65,6 +65,13 @@ async function importRepoByFullName(
 
   if (issuesRes.ok) {
     const issues = await issuesRes.json();
+    const isLarge = Array.isArray(issues) && issues.length > 50;
+
+    // Update repository size flag
+    await prisma.repository.update({
+      where: { id: newRepoId },
+      data: { isLarge },
+    });
 
     // 1. Clear existing issues
     await prisma.issue.deleteMany({ where: { repositoryId: newRepoId } });
@@ -291,9 +298,16 @@ export async function refreshRepositoryIssues(repoId: string) {
   }
 
   const issues = await issuesRes.json();
+  const isLarge = Array.isArray(issues) && issues.length > 50;
 
   // 3. Batch Process Issues & Tags
   const parsedRepoId = parseInt(repoId);
+
+  // Update repository size flag
+  await prisma.repository.update({
+    where: { id: parsedRepoId },
+    data: { isLarge },
+  });
 
   // Fetch all existing issues and tags for this repo in one go
   const [existingIssues, existingTags] = await Promise.all([
@@ -430,17 +444,23 @@ export async function groupIssuesWithAi(repoId: string) {
   const parsedRepoId = parseInt(repoId);
 
   // Fetch all issues for this repo
-  const issues = await prisma.issue.findMany({
-    where: { repositoryId: parsedRepoId },
-    select: { id: true, title: true, description: true },
-  });
+  const [issues, repo] = await Promise.all([
+    prisma.issue.findMany({
+      where: { repositoryId: parsedRepoId },
+      select: { id: true, title: true, description: true },
+    }),
+    prisma.repository.findUnique({
+      where: { id: parsedRepoId },
+      select: { isLarge: true },
+    })
+  ]);
 
   if (issues.length === 0) {
     return { success: false, error: "No issues to group" };
   }
 
   // Use Gemini to group them
-  const result = await groupIssuesWithGemini(issues);
+  const result = await groupIssuesWithGemini(issues, repo?.isLarge || false);
 
   // Update DB: Clear existing groups for this repo
   await prisma.group.deleteMany({ where: { repositoryId: parsedRepoId } });

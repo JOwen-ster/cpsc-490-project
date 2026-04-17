@@ -24,6 +24,7 @@ model Repository {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name        String
   description String?
+  isLarge     Boolean  @default(false) @map("is_large")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
   issues      Issue[]
   tags        Tag[]
