@@ -65,8 +65,9 @@ export default async function DashboardPage({ params, searchParams }: Props) {
   // Fetch issues for selected repo using Prisma
   let issues: any[] = [];
   let groups: any[] = [];
+  let kanbanColumnsDb: any[] = [];
   if (selectedRepoId) {
-    const [issuesData, groupsData] = await Promise.all([
+    const [issuesData, groupsData, columnsData] = await Promise.all([
       prisma.issue.findMany({
         where: {
           repositoryId: parseInt(selectedRepoId),
@@ -86,6 +87,10 @@ export default async function DashboardPage({ params, searchParams }: Props) {
       }),
       prisma.group.findMany({
         where: { repositoryId: parseInt(selectedRepoId) }
+      }),
+      prisma.kanbanColumn.findMany({
+        where: { repositoryId: parseInt(selectedRepoId) },
+        orderBy: { order: 'asc' }
       })
     ]);
 
@@ -98,10 +103,11 @@ export default async function DashboardPage({ params, searchParams }: Props) {
       })),
     }));
     groups = groupsData;
+    kanbanColumnsDb = columnsData;
   }
 
   // Map issues to columns using the extracted mappers
-  const kanbanColumns = mapIssuesToKanbanColumns(issues);
+  const kanbanColumns = mapIssuesToKanbanColumns(issues, kanbanColumnsDb);
   const groupColumns = mapIssuesToGroupColumns(issues, groups);
 
   return (
@@ -208,6 +214,7 @@ export default async function DashboardPage({ params, searchParams }: Props) {
             initialColumns={kanbanColumns} 
             groupColumns={groupColumns}
             currentView={currentView}
+            repoId={selectedRepoId}
           />
         </div>
       }

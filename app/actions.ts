@@ -36,6 +36,21 @@ async function importRepoByFullName(
 
   const newRepoId = upsertRepo.id;
 
+  // 1. Create default Kanban Columns if they don't exist
+  const existingColumns = await prisma.kanbanColumn.findMany({
+    where: { repositoryId: newRepoId },
+  });
+
+  if (existingColumns.length === 0) {
+    await prisma.kanbanColumn.createMany({
+      data: [
+        { repositoryId: newRepoId, name: "To Do", color: "gray", order: 0 },
+        { repositoryId: newRepoId, name: "In Progress", color: "yellow", order: 1 },
+        { repositoryId: newRepoId, name: "Done", color: "green", order: 2 },
+      ],
+    });
+  }
+
   // Fetch issues from GitHub API (both open and closed)
   const issuesRes = await fetch(
     `https://api.github.com/repos/${fullName}/issues?state=all&per_page=100&sort=updated`,
@@ -89,7 +104,8 @@ async function importRepoByFullName(
           issueNumber: issue.number,
           title: issue.title,
           description: issue.body || "",
-          status: issue.state === "closed" ? "done" : "todo",
+          url: issue.html_url,
+          status: issue.state === "closed" ? "Done" : "To Do",
           author: `@${issue.user.login}`,
           createdAt: new Date(issue.created_at),
           updatedAt: new Date(issue.updated_at),
@@ -216,6 +232,21 @@ export async function refreshRepositoryIssues(repoId: string) {
     throw new Error("Repository not found");
   }
 
+  // Ensure default columns exist
+  const existingColumns = await prisma.kanbanColumn.findMany({
+    where: { repositoryId: repo.id },
+  });
+
+  if (existingColumns.length === 0) {
+    await prisma.kanbanColumn.createMany({
+      data: [
+        { repositoryId: repo.id, name: "To Do", color: "gray", order: 0 },
+        { repositoryId: repo.id, name: "In Progress", color: "yellow", order: 1 },
+        { repositoryId: repo.id, name: "Done", color: "green", order: 2 },
+      ],
+    });
+  }
+
   const repoName = repo.name;
 
   // We fetch the user's repos to find the full_name
@@ -286,7 +317,8 @@ export async function refreshRepositoryIssues(repoId: string) {
           issueNumber: issue.number,
           title: issue.title,
           description: issue.body || "",
-          status: issue.state === "closed" ? "done" : "todo",
+          url: issue.html_url,
+          status: issue.state === "closed" ? "Done" : "To Do",
           author: `@${issue.user.login}`,
           createdAt: new Date(issue.created_at),
           updatedAt: new Date(issue.updated_at),
@@ -299,22 +331,24 @@ export async function refreshRepositoryIssues(repoId: string) {
       // Sync status with GitHub
       let finalStatus = existingIssue.status;
       if (issue.state === "closed") {
-        finalStatus = "done";
-      } else if (issue.state === "open" && existingIssue.status === "done") {
+        finalStatus = "Done";
+      } else if (issue.state === "open" && existingIssue.status === "Done") {
         // Issue was reopened on GitHub
-        finalStatus = "todo";
+        finalStatus = "To Do";
       }
 
       // Only update if actually changed
       if (
         existingIssue.description !== (issue.body || "") ||
-        existingIssue.status !== finalStatus
+        existingIssue.status !== finalStatus ||
+        existingIssue.url !== issue.html_url
       ) {
         await prisma.issue.update({
           where: { id: issueId },
           data: {
             description: issue.body || "",
             status: finalStatus,
+            url: issue.html_url,
             updatedAt: new Date(issue.updated_at),
           },
         });
@@ -431,6 +465,97 @@ export async function groupIssuesWithAi(repoId: string) {
       });
     }
   }
+
+  revalidatePath(`/dashboard/${session.user.username}`);
+  return { success: true };
+}
+
+export async function createKanbanColumn(repoId: string, name: string, color: string = "gray") {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const repo = await prisma.repository.findFirst({
+    where: { id: parseInt(repoId), userId: session.user.id },
+  });
+  if (!repo) throw new Error("Repository not found");
+
+  const maxOrder = await prisma.kanbanColumn.aggregate({
+    where: { repositoryId: repo.id },
+    _max: { order: true },
+  });
+
+  const newOrder = (maxOrder._max.order ?? -1) + 1;
+
+  await prisma.kanbanColumn.create({
+    data: {
+      repositoryId: repo.id,
+      name,
+      color,
+      order: newOrder,
+    },
+  });
+
+  revalidatePath(`/dashboard/${session.user.username}`);
+  return { success: true };
+}
+
+export async function updateColumnOrder(columnId: number, direction: "left" | "right") {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const column = await prisma.kanbanColumn.findUnique({
+    where: { id: columnId },
+    include: { repository: true },
+  });
+
+  if (!column || column.repository.userId !== session.user.id) {
+    throw new Error("Column not found or access denied");
+  }
+
+  const allColumns = await prisma.kanbanColumn.findMany({
+    where: { repositoryId: column.repositoryId },
+    orderBy: { order: "asc" },
+  });
+
+  const currentIndex = allColumns.findIndex((c) => c.id === columnId);
+  const targetIndex = direction === "left" ? currentIndex - 1 : currentIndex + 1;
+
+  if (targetIndex >= 0 && targetIndex < allColumns.length) {
+    const targetColumn = allColumns[targetIndex];
+
+    // Swap orders
+    await prisma.$transaction([
+      prisma.kanbanColumn.update({
+        where: { id: column.id },
+        data: { order: targetColumn.order },
+      }),
+      prisma.kanbanColumn.update({
+        where: { id: targetColumn.id },
+        data: { order: column.order },
+      }),
+    ]);
+  }
+
+  revalidatePath(`/dashboard/${session.user.username}`);
+  return { success: true };
+}
+
+export async function deleteKanbanColumn(columnId: number) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const column = await prisma.kanbanColumn.findUnique({
+    where: { id: columnId },
+    include: { repository: true },
+  });
+
+  if (!column || column.repository.userId !== session.user.id) {
+    throw new Error("Column not found or access denied");
+  }
+
+  await prisma.kanbanColumn.delete({
+    where: { id: columnId },
+  });
 
   revalidatePath(`/dashboard/${session.user.username}`);
   return { success: true };
