@@ -209,7 +209,7 @@ export default async function DashboardPage({ params, searchParams }: Props) {
         )
       }
       main={
-        <div className="flex-1 min-h-0 bg-[#0d1117]">
+        <div className="flex-1 min-h-0 flex flex-col bg-[#0d1117]">
           <DashboardBoard 
             initialColumns={kanbanColumns} 
             groupColumns={groupColumns}
@@ -226,6 +226,7 @@ export default async function DashboardPage({ params, searchParams }: Props) {
               repoName={repositories.find(r => r.id.toString() === selectedRepoId)?.name || "Repository"} 
               viewMode={currentView}
               groups={groups}
+              kanbanColumns={kanbanColumnsDb}
             />
           ) : (
             <div className="flex-1 rounded-xl border border-[#30363d] border-dashed flex flex-col items-center justify-center text-[#484f58] p-4 text-center bg-[#010409]">

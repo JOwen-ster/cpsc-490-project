@@ -18,9 +18,9 @@ import {
   KanbanBoardExtraMargin,
 } from "@/components/kanban";
 
-import { updateIssueStatus, createKanbanColumn, updateColumnOrder, deleteKanbanColumn } from "@/app/actions";
+import { updateIssueStatus, createKanbanColumn, updateColumnOrder, deleteKanbanColumn, updateKanbanColumn } from "@/app/actions";
 
-import { CheckCircle2, ChevronLeft, ChevronRight, Plus, ExternalLink, Trash2 } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Plus, ExternalLink, Trash2, Settings, X } from "lucide-react";
 
 export interface CardData {
   id: string;
@@ -36,7 +36,7 @@ export interface Column {
   id: string;
   dbId?: number;
   title: string;
-  color: "gray" | "yellow" | "green" | "primary";
+  color: "gray" | "yellow" | "green" | "primary" | "blue" | "red" | "purple";
   cards: CardData[];
 }
 
@@ -90,6 +90,14 @@ export default function DashboardBoard({
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // Modal State
+  const [showModal, setShowModal] = React.useState(false);
+  const [editingColumn, setEditingColumn] = React.useState<Column | null>(null);
+  const [modalName, setModalName] = React.useState("");
+  const [modalColor, setModalColor] = React.useState<string>("gray");
+
+  const PRESET_COLORS = ["gray", "blue", "green", "yellow", "red", "purple"];
+
   const handleViewChange = (newView: "status" | "groups") => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("view", newView);
@@ -111,13 +119,32 @@ export default function DashboardBoard({
   };
 
   const handleAddColumn = () => {
-    if (!repoId) return;
-    const name = prompt("Enter column name:");
-    if (name) {
-      createKanbanColumn(repoId, name)
-        .then(() => router.refresh())
-        .catch(console.error);
-    }
+    setEditingColumn(null);
+    setModalName("");
+    setModalColor("gray");
+    setShowModal(true);
+  };
+
+  const handleEditColumn = (column: Column) => {
+    setEditingColumn(column);
+    setModalName(column.title);
+    setModalColor(column.color);
+    setShowModal(true);
+  };
+
+  const handleSaveColumn = () => {
+    if (!repoId || !modalName.trim()) return;
+
+    const action = editingColumn && editingColumn.dbId
+      ? updateKanbanColumn(editingColumn.dbId, modalName, modalColor)
+      : createKanbanColumn(repoId, modalName, modalColor);
+
+    action
+      .then(() => {
+        setShowModal(false);
+        router.refresh();
+      })
+      .catch(console.error);
   };
 
   const handleMoveColumn = (dbId: number, direction: "left" | "right") => {
@@ -137,7 +164,85 @@ export default function DashboardBoard({
 
   return (
     <KanbanBoardProvider>
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full relative">
+        {/* Settings Modal */}
+        {showModal && (
+          <div 
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 p-4"
+            onClick={() => setShowModal(false)}
+          >
+            <div 
+              className="bg-[#161b22] border border-[#30363d] rounded-xl shadow-2xl w-full max-w-sm p-6 animate-in zoom-in-95 duration-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-[#f0f6fc] font-bold text-lg">
+                  {editingColumn ? "Edit Column" : "Add Column"}
+                </h3>
+                <button 
+                  onClick={() => setShowModal(false)}
+                  className="text-[#8b949e] hover:text-[#f0f6fc] transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-[#8b949e] uppercase tracking-wider">
+                    Column Name
+                  </label>
+                  <input
+                    type="text"
+                    value={modalName}
+                    onChange={(e) => setModalName(e.target.value)}
+                    className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-4 py-2.5 text-[#f0f6fc] focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all placeholder:text-[#484f58]"
+                    placeholder="e.g. Backlog, Testing..."
+                    autoFocus
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-[#8b949e] uppercase tracking-wider">
+                    Column Color
+                  </label>
+                  <div className="flex flex-wrap gap-3 p-1">
+                    {PRESET_COLORS.map((color) => (
+                      <button
+                        key={color}
+                        onClick={() => setModalColor(color)}
+                        className={`size-8 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95 ${
+                          modalColor === color 
+                            ? "ring-2 ring-blue-500 ring-offset-2 ring-offset-[#161b22]" 
+                            : "hover:ring-1 hover:ring-[#8b949e]"
+                        }`}
+                      >
+                        <KanbanColorCircle color={color as any} className="m-0 size-4" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => setShowModal(false)}
+                    className="flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold text-[#c9d1d9] bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveColumn}
+                    disabled={!modalName.trim()}
+                    className="flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-[#238636] hover:bg-[#2ea043] border border-[#238636] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {editingColumn ? "Save Changes" : "Create Column"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="px-6 pt-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="flex bg-[#161b22] p-1 rounded-lg border border-[#30363d]">
@@ -219,6 +324,13 @@ export default function DashboardBoard({
                         title="Move Right"
                       >
                         <ChevronRight size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleEditColumn(column)}
+                        className="p-1 text-[#8b949e] hover:text-[#f0f6fc] hover:bg-[#30363d] rounded"
+                        title="Column Settings"
+                      >
+                        <Settings size={14} />
                       </button>
                       <button
                         onClick={() => handleDeleteColumn(column.dbId!)}

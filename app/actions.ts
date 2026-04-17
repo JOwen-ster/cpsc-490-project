@@ -560,3 +560,25 @@ export async function deleteKanbanColumn(columnId: number) {
   revalidatePath(`/dashboard/${session.user.username}`);
   return { success: true };
 }
+
+export async function updateKanbanColumn(columnId: number, name: string, color: string) {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  const column = await prisma.kanbanColumn.findUnique({
+    where: { id: columnId },
+    include: { repository: true },
+  });
+
+  if (!column || column.repository.userId !== session.user.id) {
+    throw new Error("Column not found or access denied");
+  }
+
+  await prisma.kanbanColumn.update({
+    where: { id: columnId },
+    data: { name, color },
+  });
+
+  revalidatePath(`/dashboard/${session.user.username}`);
+  return { success: true };
+}
