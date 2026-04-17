@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { PieChart, ChevronRight } from "lucide-react";
+import { PieChart, ChevronRight, ChevronLeft, X } from "lucide-react";
 
 interface DashboardContainerProps {
   sidebar: React.ReactNode;
@@ -12,6 +12,7 @@ interface DashboardContainerProps {
 
 export default function DashboardContainer({ sidebar, main, graph, headerActions }: DashboardContainerProps) {
   const [showGraph, setShowGraph] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   return (
     <div className="flex h-screen w-full bg-[#0d1117] text-[#e6edf3] overflow-hidden font-[family-name:var(--font-geist-sans)]">
@@ -42,7 +43,7 @@ export default function DashboardContainer({ sidebar, main, graph, headerActions
           </div>
         </header>
 
-        <main className="flex-1 min-h-0 overflow-auto relative">
+        <main className="flex-1 min-h-0 flex flex-col relative">
           {main}
 
           {/* Popout Graph Widget */}
@@ -54,22 +55,33 @@ export default function DashboardContainer({ sidebar, main, graph, headerActions
                 onClick={() => setShowGraph(false)}
               />
               {/* Sliding Panel */}
-              <div className="absolute top-0 right-0 bottom-0 w-96 bg-[#010409] border-l border-[#30363d] shadow-2xl z-20 flex flex-col p-6 animate-in slide-in-from-right duration-300">
+              <div 
+                className={`absolute top-0 right-0 bottom-0 bg-[#010409] border-l border-[#30363d] shadow-2xl z-20 flex flex-col p-6 transition-all duration-300 ease-in-out ${isExpanded ? "w-[800px]" : "w-96"}`}
+              >
                 <div className="flex justify-between items-center mb-6">
-                  <div className="flex items-center gap-2 text-[#f0f6fc]">
-                    <PieChart size={18} />
-                    <span className="font-bold text-sm uppercase tracking-wider">
-                      Analysis View
-                    </span>
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => setIsExpanded(!isExpanded)}
+                      className="text-[#8b949e] hover:text-[#f0f6fc] p-1 hover:bg-[#1c2128] rounded-md transition-colors"
+                      title={isExpanded ? "Collapse" : "Expand"}
+                    >
+                      {isExpanded ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+                    </button>
+                    <div className="flex items-center gap-2 text-[#f0f6fc]">
+                      <PieChart size={18} />
+                      <span className="font-bold text-sm uppercase tracking-wider">
+                        Analysis View
+                      </span>
+                    </div>
                   </div>
                   <button
                     onClick={() => setShowGraph(false)}
                     className="text-[#8b949e] hover:text-[#f0f6fc] p-1 hover:bg-[#1c2128] rounded-md transition-colors"
                   >
-                    <ChevronRight size={18} />
+                    <X size={18} />
                   </button>
                 </div>
-                <div className="flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-hidden">
                   {graph}
                 </div>
               </div>

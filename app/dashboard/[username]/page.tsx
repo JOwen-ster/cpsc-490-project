@@ -44,6 +44,8 @@ export default async function DashboardPage({ params, searchParams }: Props) {
     selectedRepoId = repositories[0].id.toString();
   }
 
+  const currentView = resolvedSearchParams.view === "groups" ? "groups" : "status";
+
   // Handle Refresh Action
   async function handleRefresh() {
     "use server";
@@ -63,8 +65,9 @@ export default async function DashboardPage({ params, searchParams }: Props) {
   // Fetch issues for selected repo using Prisma
   let issues: any[] = [];
   let groups: any[] = [];
+  let kanbanColumnsDb: any[] = [];
   if (selectedRepoId) {
-    const [issuesData, groupsData] = await Promise.all([
+    const [issuesData, groupsData, columnsData] = await Promise.all([
       prisma.issue.findMany({
         where: {
           repositoryId: parseInt(selectedRepoId),
@@ -84,6 +87,10 @@ export default async function DashboardPage({ params, searchParams }: Props) {
       }),
       prisma.group.findMany({
         where: { repositoryId: parseInt(selectedRepoId) }
+      }),
+      prisma.kanbanColumn.findMany({
+        where: { repositoryId: parseInt(selectedRepoId) },
+        orderBy: { order: 'asc' }
       })
     ]);
 
@@ -96,10 +103,11 @@ export default async function DashboardPage({ params, searchParams }: Props) {
       })),
     }));
     groups = groupsData;
+    kanbanColumnsDb = columnsData;
   }
 
   // Map issues to columns using the extracted mappers
-  const kanbanColumns = mapIssuesToKanbanColumns(issues);
+  const kanbanColumns = mapIssuesToKanbanColumns(issues, kanbanColumnsDb);
   const groupColumns = mapIssuesToGroupColumns(issues, groups);
 
   return (
@@ -201,10 +209,12 @@ export default async function DashboardPage({ params, searchParams }: Props) {
         )
       }
       main={
-        <div className="flex-1 min-h-0 bg-[#0d1117]">
+        <div className="flex-1 min-h-0 flex flex-col bg-[#0d1117]">
           <DashboardBoard 
             initialColumns={kanbanColumns} 
             groupColumns={groupColumns}
+            currentView={currentView}
+            repoId={selectedRepoId}
           />
         </div>
       }
@@ -214,6 +224,9 @@ export default async function DashboardPage({ params, searchParams }: Props) {
             <IssueGraph 
               issues={issues} 
               repoName={repositories.find(r => r.id.toString() === selectedRepoId)?.name || "Repository"} 
+              viewMode={currentView}
+              groups={groups}
+              kanbanColumns={kanbanColumnsDb}
             />
           ) : (
             <div className="flex-1 rounded-xl border border-[#30363d] border-dashed flex flex-col items-center justify-center text-[#484f58] p-4 text-center bg-[#010409]">

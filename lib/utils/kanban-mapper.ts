@@ -1,11 +1,23 @@
 import { Column, CardData } from "@/components/dashboard-board";
 
-export function mapIssuesToKanbanColumns(issues: any[]): Column[] {
-  const columns: Column[] = [
-    { id: "todo", title: "To Do", color: "gray", cards: [] },
-    { id: "inprogress", title: "In Progress", color: "yellow", cards: [] },
-    { id: "done", title: "Done", color: "green", cards: [] },
-  ];
+export function mapIssuesToKanbanColumns(issues: any[], dbColumns: any[] = []): Column[] {
+  let columns: Column[];
+  
+  if (dbColumns.length > 0) {
+    columns = dbColumns.map(col => ({
+      id: col.name, // We use name as the status/id for now to match issue.status
+      dbId: col.id,
+      title: col.name,
+      color: col.color as any,
+      cards: []
+    }));
+  } else {
+    columns = [
+      { id: "To Do", title: "To Do", color: "gray", cards: [] },
+      { id: "In Progress", title: "In Progress", color: "yellow", cards: [] },
+      { id: "Done", title: "Done", color: "green", cards: [] },
+    ];
+  }
 
   issues.forEach((issue) => {
     const displayNum = issue.issueNumber || issue.issue_number || issue.id;
@@ -16,6 +28,8 @@ export function mapIssuesToKanbanColumns(issues: any[]): Column[] {
       time: issue.createdAt instanceof Date 
         ? issue.createdAt.toISOString() 
         : (issue.created_at instanceof Date ? issue.created_at.toISOString() : new Date(issue.createdAt || issue.created_at).toISOString()),
+      status: issue.status,
+      url: issue.url,
       tags: issue.tags,
     };
 
@@ -60,6 +74,8 @@ export function mapIssuesToGroupColumns(issues: any[], groups: any[]): Column[] 
       time: issue.createdAt instanceof Date 
         ? issue.createdAt.toISOString() 
         : (issue.created_at instanceof Date ? issue.created_at.toISOString() : new Date(issue.createdAt || issue.created_at).toISOString()),
+      status: issue.status,
+      url: issue.url,
       tags: issue.tags,
     };
 

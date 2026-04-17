@@ -2,7 +2,10 @@ import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
-export async function groupIssuesWithGemini(issues: { id: number; title: string; description: string | null }[]) {
+export async function groupIssuesWithGemini(
+  issues: { id: number; title: string; description: string | null }[],
+  isLarge: boolean = false
+) {
   const model = genAI.getGenerativeModel({
     model: "gemini-2.5-flash",
     generationConfig: {
@@ -38,6 +41,18 @@ export async function groupIssuesWithGemini(issues: { id: number; title: string;
     },
   });
 
+  const processedIssues = isLarge 
+    ? issues.map(issue => ({
+        id: issue.id,
+        title: issue.title,
+        ...(issue.description ? { 
+          description: issue.description.length > 300 
+            ? issue.description.substring(0, 300) + "..." 
+            : issue.description 
+        } : {})
+      }))
+    : issues;
+
   const prompt = `
     You are an expert project manager. I have a list of GitHub issues for a repository.
     Your task is to:
@@ -45,7 +60,7 @@ export async function groupIssuesWithGemini(issues: { id: number; title: string;
     2. For each group, prioritize the issues from FIRST to LAST (priority 1 being the most urgent/first to do).
     
     Here are the issues:
-    ${JSON.stringify(issues, null, 2)}
+    ${JSON.stringify(processedIssues)}
     
     Return a JSON object with a "groups" array. Each group should have a "name", "description", and an "issueIds" array of objects containing the issue "id" and its "priority" within that group.
   `;
