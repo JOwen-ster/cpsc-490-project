@@ -26,10 +26,12 @@ async function importRepoByFullName(
     },
     update: {
       description: description,
+      fullName: fullName,
     },
     create: {
       userId: userId,
       name: name,
+      fullName: fullName,
       description: description,
     },
   });
@@ -254,32 +256,38 @@ export async function refreshRepositoryIssues(repoId: string) {
     });
   }
 
-  const repoName = repo.name;
+  let fullName = repo.fullName;
 
-  // We fetch the user's repos to find the full_name
-  const githubReposRes = await fetch(
-    "https://api.github.com/user/repos?per_page=100",
-    {
-      headers: {
-        Authorization: `Bearer ${session.accessToken}`,
-        Accept: "application/vnd.github.v3+json",
+  // If we don't have the fullName (for legacy data), we search for it once
+  if (!fullName) {
+    const githubReposRes = await fetch(
+      "https://api.github.com/user/repos?per_page=100",
+      {
+        headers: {
+          Authorization: `Bearer ${session.accessToken}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+        cache: "no-store",
       },
-      cache: "no-store",
-    },
-  );
+    );
 
-  if (!githubReposRes.ok) {
-    throw new Error("Failed to fetch user repositories from GitHub");
+    if (githubReposRes.ok) {
+      const githubRepos = await githubReposRes.json();
+      const targetRepo = githubRepos.find((r: any) => r.name === repo.name);
+      if (targetRepo) {
+        fullName = targetRepo.full_name;
+        // Persist it for next time
+        await prisma.repository.update({
+          where: { id: repo.id },
+          data: { fullName },
+        });
+      }
+    }
   }
 
-  const githubRepos = await githubReposRes.json();
-  const targetRepo = githubRepos.find((r: any) => r.name === repoName);
-
-  if (!targetRepo) {
-    throw new Error("Repository not found on GitHub");
+  if (!fullName) {
+    throw new Error("Repository not found on GitHub. If this is a linked repo, please try re-adding it.");
   }
-
-  const fullName = targetRepo.full_name;
 
   // 2. Fetch the latest issues (both open and closed)
   const issuesRes = await fetch(
