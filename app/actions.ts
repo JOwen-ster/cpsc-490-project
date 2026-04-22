@@ -449,6 +449,31 @@ export async function groupIssuesWithAi(repoId: string) {
     throw new Error("Unauthorized");
   }
 
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { aiGroupingsCount: true, lastAiGroupedAt: true },
+  });
+
+  if (!user) throw new Error("User not found");
+
+  const now = new Date();
+  let currentCount = user.aiGroupingsCount;
+  
+  // Check if we need to reset the count (if last grouping was on a previous day)
+  const lastGroupedDate = user.lastAiGroupedAt ? new Date(user.lastAiGroupedAt) : null;
+  const isDifferentDay = !lastGroupedDate || 
+    lastGroupedDate.getUTCFullYear() !== now.getUTCFullYear() ||
+    lastGroupedDate.getUTCMonth() !== now.getUTCMonth() ||
+    lastGroupedDate.getUTCDate() !== now.getUTCDate();
+
+  if (isDifferentDay) {
+    currentCount = 0;
+  }
+
+  if (currentCount >= 3) {
+    throw new Error("You have reached the limit of 3 AI groupings per day. Please try again tomorrow.");
+  }
+
   const parsedRepoId = parseInt(repoId);
 
   // Fetch all issues for this repo
@@ -494,8 +519,17 @@ export async function groupIssuesWithAi(repoId: string) {
     }
   }
 
+  // Update user's usage stats
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: {
+      aiGroupingsCount: currentCount + 1,
+      lastAiGroupedAt: now,
+    },
+  });
+
   revalidatePath(`/dashboard/${session.user.username}`);
-  return { success: true };
+  redirect(`/dashboard/${session.user.username}?repoId=${repoId}&view=groups`);
 }
 
 export async function createKanbanColumn(repoId: string, name: string, color: string = "gray") {
@@ -605,6 +639,22 @@ export async function updateKanbanColumn(columnId: number, name: string, color: 
   await prisma.kanbanColumn.update({
     where: { id: columnId },
     data: { name, color },
+  });
+
+  revalidatePath(`/dashboard/${session.user.username}`);
+  return { success: true };
+}
+
+export async function resetAiGroupingLimit() {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Unauthorized");
+
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: {
+      aiGroupingsCount: 0,
+      lastAiGroupedAt: null,
+    },
   });
 
   revalidatePath(`/dashboard/${session.user.username}`);

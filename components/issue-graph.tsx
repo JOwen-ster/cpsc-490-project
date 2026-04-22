@@ -33,12 +33,12 @@ const COLOR_MAP: Record<string, string> = {
   primary: "#1f6feb",
 };
 
-export default function IssueGraph({ 
-  issues, 
-  repoName, 
-  viewMode = "status", 
+export default function IssueGraph({
+  issues,
+  repoName,
+  viewMode = "status",
   groups = [],
-  kanbanColumns = [] 
+  kanbanColumns = [],
 }: IssueGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const fgRef = useRef<any>(null);
@@ -47,7 +47,9 @@ export default function IssueGraph({
   const getIssueColor = (issue: Issue) => {
     // If we have dynamic columns, try to find a match by name
     if (kanbanColumns.length > 0) {
-      const col = kanbanColumns.find(c => c.name.toLowerCase() === issue.status.toLowerCase());
+      const col = kanbanColumns.find(
+        (c) => c.name.toLowerCase() === issue.status.toLowerCase(),
+      );
       if (col && COLOR_MAP[col.color]) {
         return COLOR_MAP[col.color];
       }
@@ -56,7 +58,8 @@ export default function IssueGraph({
     // Fallback to hardcoded defaults
     const status = issue.status.toLowerCase();
     if (status === "done") return COLOR_MAP.green;
-    if (status === "in progress" || status === "inprogress") return COLOR_MAP.yellow;
+    if (status === "in progress" || status === "inprogress")
+      return COLOR_MAP.yellow;
     return COLOR_MAP.gray;
   };
 
@@ -88,13 +91,20 @@ export default function IssueGraph({
 
   const graphData = useMemo(() => {
     const nodes: any[] = [
-      { id: "repo", name: repoName, val: 12, color: "#f0f6fc", isRepo: true, isGroup: false },
+      {
+        id: "repo",
+        name: repoName,
+        val: 12,
+        color: "#f0f6fc",
+        isRepo: true,
+        isGroup: false,
+      },
     ];
     const links: any[] = [];
 
     if (viewMode === "groups") {
       // Create group nodes
-      groups.forEach(group => {
+      groups.forEach((group) => {
         nodes.push({
           id: `group-${group.id}`,
           name: group.name,
@@ -110,7 +120,7 @@ export default function IssueGraph({
       });
 
       // Create issue nodes and link to groups
-      issues.forEach(issue => {
+      issues.forEach((issue) => {
         nodes.push({
           id: issue.id,
           name: issue.title,
@@ -136,7 +146,7 @@ export default function IssueGraph({
     } else {
       // Status view: Repo -> Columns -> Issues
       // Create column nodes
-      kanbanColumns.forEach(col => {
+      kanbanColumns.forEach((col) => {
         nodes.push({
           id: `col-${col.name}`,
           name: col.name,
@@ -152,7 +162,7 @@ export default function IssueGraph({
       });
 
       // Create issue nodes and link to columns
-      issues.forEach(issue => {
+      issues.forEach((issue) => {
         nodes.push({
           id: issue.id,
           name: issue.title,
@@ -163,7 +173,7 @@ export default function IssueGraph({
         });
 
         const colNodeId = `col-${issue.status}`;
-        if (nodes.some(n => n.id === colNodeId)) {
+        if (nodes.some((n) => n.id === colNodeId)) {
           links.push({
             source: colNodeId,
             target: issue.id,
@@ -197,28 +207,63 @@ export default function IssueGraph({
           linkDirectionalParticleSpeed={0.005}
           linkDirectionalParticleWidth={2}
           nodeCanvasObject={(node: any, ctx, globalScale) => {
-            const label = node.name;
+            const rawLabel = node.name;
             const fontSize = 12 / globalScale;
             ctx.font = `${fontSize}px Inter, sans-serif`;
-            
+
             // Draw circle
             ctx.beginPath();
-            ctx.arc(node.x, node.y, node.isRepo ? 4 : (node.isGroup ? 3.5 : 2.5), 0, 2 * Math.PI, false);
+            ctx.arc(
+              node.x,
+              node.y,
+              node.isRepo ? 4 : node.isGroup ? 3.5 : 2.5,
+              0,
+              2 * Math.PI,
+              false,
+            );
             ctx.fillStyle = node.color;
             ctx.fill();
 
             // Draw label
             if (globalScale > 1.5 || node.isRepo || node.isGroup) {
-              const textWidth = ctx.measureText(label).width;
-              const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.2);
-              
-              ctx.fillStyle = "rgba(13, 17, 23, 0.8)";
-              ctx.fillRect(node.x - bckgDimensions[0] / 2, node.y + (node.isRepo ? 6 : (node.isGroup ? 5 : 4)), bckgDimensions[0], bckgDimensions[1]);
-              
+              const lines: string[] = [];
+              if (rawLabel.length > 25 && rawLabel.includes(" ")) {
+                const middle = Math.floor(rawLabel.length / 2);
+                let splitIdx = rawLabel.lastIndexOf(" ", middle);
+                if (splitIdx === -1) splitIdx = rawLabel.indexOf(" ", middle);
+                
+                if (splitIdx !== -1) {
+                  lines.push(rawLabel.substring(0, splitIdx));
+                  lines.push(rawLabel.substring(splitIdx + 1));
+                } else {
+                  lines.push(rawLabel);
+                }
+              } else {
+                lines.push(rawLabel);
+              }
+
+              const maxLineWidth = Math.max(...lines.map(l => ctx.measureText(l).width));
+              const bckgDimensions = [maxLineWidth, fontSize * lines.length].map(n => n + fontSize * 0.4);
+
+              ctx.fillStyle = "rgba(13, 17, 23, 0.85)";
+              ctx.fillRect(
+                node.x - bckgDimensions[0] / 2,
+                node.y + (node.isRepo ? 6 : node.isGroup ? 5 : 4),
+                bckgDimensions[0],
+                bckgDimensions[1]
+              );
+
               ctx.textAlign = "center";
-              ctx.textBaseline = "middle";
-              ctx.fillStyle = (node.isRepo || node.isGroup) ? "#f0f6fc" : "#8b949e";
-              ctx.fillText(label, node.x, node.y + (node.isRepo ? 6 : (node.isGroup ? 5 : 4)) + bckgDimensions[1] / 2);
+              ctx.textBaseline = "top";
+              ctx.fillStyle = node.isRepo || node.isGroup ? "#f0f6fc" : "#8b949e";
+              
+              lines.forEach((line, i) => {
+                ctx.fillText(
+                  line,
+                  node.x,
+                  node.y + (node.isRepo ? 6 : (node.isGroup ? 5 : 4)) + (i * fontSize * 1.1) + 2
+                );
+              });
             }
           }}
           nodeCanvasObjectMode={() => "after"}
