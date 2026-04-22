@@ -53,22 +53,21 @@ GitGraph is an AI-powered project management dashboard that transforms chaotic G
    GEMINI_API_KEY="your-gemini-api-key"
    ```
 
-4. **Start the Database**:
+4. **Start the Environment**:
+   Run the following command to build the webapp image and start the database and application containers:
    ```bash
-   docker-compose up -d gitgraph-postgres-db
+   docker compose up --build
    ```
+   *Note: This will automatically run `prisma db push` inside the container as part of the startup command.*
 
-5. **Sync Database Schema**:
-   ```bash
-   pnpm prisma db push
-   pnpm prisma generate
-   ```
-
-6. **Run the development server**:
-   ```bash
-   pnpm dev
-   ```
    Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+5. **Stop the Environment**:
+   To shut down the environment and delete all volumes (resetting the database):
+   ```bash
+   docker compose down -v
+   ```
+
 
 ## 🚢 Deployment
 
@@ -100,7 +99,7 @@ The project includes a `Dockerfile` and `compose.yml` for containerized deployme
    - Amplify Gen 2 supports Next.js App Router deployments directly from GitHub.
    - Similar to Vercel, you will need to provide the `DATABASE_URL` and other secrets in the Amplify console.
 
-## 📈 Monitoring & Maintenance
+## Monitoring & Maintenance
 
 - **Manual reset**: To reset the AI grouping limits for all users via terminal:
   ```bash
