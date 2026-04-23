@@ -1,36 +1,109 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GitGraph
 
-## Getting Started
+GitGraph is an AI-powered project management dashboard that transforms chaotic GitHub issue lists into intuitively organized visual graphs and logical roadmaps.
 
-First, run the development server:
+## Tech Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Framework**: [Next.js 15](https://nextjs.org/) (App Router)
+- **Language**: [TypeScript](https://www.typescriptlang.org/)
+- **Database**: [PostgreSQL](https://www.postgresql.org/)
+- **ORM**: [Prisma](https://www.prisma.io/)
+- **Authentication**: [NextAuth.js v5](https://next-auth.js.org/) (GitHub Provider)
+- **AI Engine**: [Google Gemini API](https://ai.google.dev/) (`gemini-2.0-flash` & `gemini-2.0-flash-lite`)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+- **Visuals**: [react-force-graph-2d](https://github.com/vasturiano/react-force-graph-2d) & [Lucide Icons](https://lucide.dev/)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Local Development
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Prerequisites
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Node.js**: v20 or higher
+- **pnpm**: Recommended package manager
+- **Docker**: For running the local database
+- **GitHub OAuth App**: Create one at [GitHub Developer Settings](https://github.com/settings/developers)
+  - Homepage URL: `http://localhost:3000`
+  - Callback URL: `http://localhost:3000/api/auth/callback/github`
+- **Gemini API Key**: Obtain from [Google AI Studio](https://aistudio.google.com/)
 
-## Learn More
+### Setup Instructions
 
-To learn more about Next.js, take a look at the following resources:
+1. **Clone the repository**:
+   ```bash
+   git clone <your-repo-url>
+   cd cpsc-490-project
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+2. **Install dependencies**:
+   ```bash
+   pnpm install
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+3. **Environment Variables**:
+   Create a `.env.local` file in the root directory and add the following:
+   ```env
+   # Database
+   DATABASE_URL="postgresql://app:app@localhost:5432/appdb"
 
-## Deploy on Vercel
+   # NextAuth
+   AUTH_SECRET="your-random-secret" # Generate with: openssl rand -base64 32
+   AUTH_GITHUB_ID="your-github-client-id"
+   AUTH_GITHUB_SECRET="your-github-client-secret"
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+   # AI
+   GEMINI_API_KEY="your-gemini-api-key"
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+4. **Start the Environment**:
+   Run the following command to build the webapp image and start the database and application containers:
+   ```bash
+   docker compose up --build
+   ```
+   *Note: This will automatically run `prisma db push` inside the container as part of the startup command.*
+
+   Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+5. **Stop the Environment**:
+   To shut down the environment and delete all volumes (resetting the database):
+   ```bash
+   docker compose down -v
+   ```
+
+
+## 🚢 Deployment
+
+### Deploy to Vercel (Recommended)
+
+1. **Create a project on Vercel** and connect your GitHub repository.
+2. **Setup Vercel Postgres**: Add the "Postgres" storage integration to your project. Vercel will automatically add the `POSTGRES_PRISMA_URL` environment variable.
+3. **Configure Environment Variables**:
+   - Set `DATABASE_URL` to the value of `POSTGRES_PRISMA_URL`.
+   - Set `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`, and `GEMINI_API_KEY`.
+4. **Build Command**: Vercel handles this automatically, but ensure `prisma generate` runs during the build step (already included in `package.json`'s `postinstall` script).
+5. **Deploy**: Push to `main` and Vercel will build and deploy the application.
+
+### Deploy to AWS (via App Runner or ECS)
+
+The project includes a `Dockerfile` and `compose.yml` for containerized deployment.
+
+1. **Database**: Use **Amazon RDS for PostgreSQL** or **Amazon Aurora**.
+2. **Container Registry**: Push your image to **Amazon ECR**.
+   ```bash
+   docker build -t gitgraph .
+   # Tag and push to ECR...
+   ```
+3. **AWS App Runner**:
+   - Point App Runner to your ECR image.
+   - Configure the environment variables in the App Runner console.
+   - Ensure the service has network access to your RDS instance (VPC Connector).
+4. **AWS Amplify**:
+   - Amplify Gen 2 supports Next.js App Router deployments directly from GitHub.
+   - Similar to Vercel, you will need to provide the `DATABASE_URL` and other secrets in the Amplify console.
+
+## Monitoring & Maintenance
+
+- **Manual reset**: To reset the AI grouping limits for all users via terminal:
+  ```bash
+  DATABASE_URL="..." pnpm prisma db execute --stdin <<EOF
+  UPDATE users SET ai_groupings_count = 0, last_ai_grouped_at = NULL;
+  EOF
+  ```

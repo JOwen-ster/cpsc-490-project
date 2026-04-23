@@ -298,13 +298,13 @@ export default function DashboardBoard({
                 <div className="flex items-center justify-between w-full group/header">
                   <KanbanBoardColumnTitle
                     columnId={column.id}
-                    className="text-[#f0f6fc] truncate pr-2"
+                    className="text-[#f0f6fc] pr-2 flex items-start"
                   >
                     <KanbanColorCircle
                       color={column.color as any}
-                      className="ml-5"
+                      className="ml-5 mt-1.5 flex-shrink-0"
                     />
-                    {column.title}
+                    <span className="leading-tight">{column.title}</span>
                   </KanbanBoardColumnTitle>
 
                   {currentView === "status" && column.dbId && (

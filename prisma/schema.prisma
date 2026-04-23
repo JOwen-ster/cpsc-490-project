@@ -14,6 +14,8 @@ model User {
   username  String
   avatarUrl String?      @map("avatar_url")
   repositories Repository[]
+  aiGroupingsCount Int      @default(0) @map("ai_groupings_count")
+  lastAiGroupedAt  DateTime? @map("last_ai_grouped_at") @db.Timestamptz
 
   @@map("users")
 }
@@ -23,6 +25,7 @@ model Repository {
   userId      String   @map("user_id")
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name        String
+  fullName    String?  @map("full_name")
   description String?
   isLarge     Boolean  @default(false) @map("is_large")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz

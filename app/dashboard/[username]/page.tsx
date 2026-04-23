@@ -7,9 +7,10 @@ import IssueGraph from "@/components/issue-graph";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { ensureUserAndSeed } from "@/lib/schema";
-import { Plus, RefreshCcw, Trash2, Sparkles } from "lucide-react";
+import { Plus, RefreshCcw, Trash2 } from "lucide-react";
 import { refreshRepositoryIssues, deleteRepository, groupIssuesWithAi } from "@/app/actions";
 import { mapIssuesToKanbanColumns, mapIssuesToGroupColumns } from "@/lib/utils/kanban-mapper";
+import { AiGroupingButton } from "@/components/ai-grouping-button";
 
 interface Props {
   params: Promise<{ username: string }>;
@@ -32,11 +33,30 @@ export default async function DashboardPage({ params, searchParams }: Props) {
     image: session.user.image!,
   });
 
-  // Fetch repositories using Prisma
-  const repositories = await prisma.repository.findMany({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: "desc" },
-  });
+  // Fetch repositories and user usage using Prisma
+  const [repositories, userData] = await Promise.all([
+    prisma.repository.findMany({
+      where: { userId: session.user.id },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.user.findUnique({
+      where: { id: session.user.id! },
+      select: { aiGroupingsCount: true, lastAiGroupedAt: true }
+    })
+  ]);
+
+  // Calculate remaining AI groupings
+  const now = new Date();
+  let remainingGroupings = 3;
+  if (userData) {
+    const lastGroupedDate = userData.lastAiGroupedAt ? new Date(userData.lastAiGroupedAt) : null;
+    const isDifferentDay = !lastGroupedDate || 
+      lastGroupedDate.getUTCFullYear() !== now.getUTCFullYear() ||
+      lastGroupedDate.getUTCMonth() !== now.getUTCMonth() ||
+      lastGroupedDate.getUTCDate() !== now.getUTCDate();
+
+    remainingGroupings = isDifferentDay ? 3 : Math.max(0, 3 - userData.aiGroupingsCount);
+  }
 
   // Determine selected repo
   let selectedRepoId = resolvedSearchParams.repoId as string | undefined;
@@ -115,8 +135,11 @@ export default async function DashboardPage({ params, searchParams }: Props) {
       sidebar={
         <>
           <div className="p-4">
-            <div className="font-bold text-lg px-2 text-[#f0f6fc] mb-6">
-              Hello, {session.user?.username}!
+            <div className="px-2 mb-8">
+              <span className="text-2xl font-bold tracking-tight">
+                <span className="text-[#f87171]">Git</span>
+                <span className="text-[#f0f6fc]">Graph</span>
+              </span>
             </div>
 
             <div className="flex items-center justify-between px-2 mb-3">
@@ -186,14 +209,7 @@ export default async function DashboardPage({ params, searchParams }: Props) {
         selectedRepoId && (
           <div className="flex items-center gap-2">
             <form action={handleAiGrouping}>
-              <button 
-                type="submit" 
-                className="flex items-center gap-2 text-xs font-medium text-purple-400 hover:text-purple-300 transition-colors p-2 hover:bg-[#1c2128] rounded-md border border-purple-500/30"
-                title="Group and prioritize issues using AI"
-              >
-                <Sparkles size={14} className="text-purple-400" />
-                AI Grouping
-              </button>
+              <AiGroupingButton remaining={remainingGroupings} />
             </form>
             <form action={handleRefresh}>
               <button 
