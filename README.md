@@ -42,6 +42,9 @@ GitGraph is an AI-powered project management dashboard that transforms chaotic G
    Create a `.env.local` file in the root directory and add the following:
    ```env
    # Database
+   POSTGRES_USER=app
+   POSTGRES_PASSWORD=app
+   POSTGRES_DB=appdb
    DATABASE_URL="postgresql://app:app@localhost:5432/appdb"
 
    # NextAuth
