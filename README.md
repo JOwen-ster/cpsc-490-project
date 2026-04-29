@@ -57,7 +57,7 @@ GitGraph is an AI-powered project management dashboard that transforms chaotic G
    Run the following command to build the webapp image and start the database and application containers:
 
    ```bash
-   docker compose --build --no-cache
+   docker compose build --no-cache
    ```
 
    ```bash
