@@ -34,13 +34,7 @@ GitGraph is an AI-powered project management dashboard that transforms chaotic G
    cd cpsc-490-project
    ```
 
-2. **Install dependencies**:
-
-   ```bash
-   pnpm install
-   ```
-
-3. **Environment Variables**:
+2. **Environment Variables**:
    Create a `.env.local` file in the root directory and add the following:
 
    ```env
@@ -59,7 +53,7 @@ GitGraph is an AI-powered project management dashboard that transforms chaotic G
    GEMINI_API_KEY=your-gemini-api-key
    ```
 
-4. **Start the Environment**:
+3. **Start the Environment**:
    Run the following command to build the webapp image and start the database and application containers:
 
    ```bash
@@ -71,7 +65,7 @@ GitGraph is an AI-powered project management dashboard that transforms chaotic G
 
    Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-5. **Stop the Environment**:
+4. **Stop the Environment**:
    To shut down the environment and delete all volumes (resetting the database):
 
    ```bash
