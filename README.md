@@ -28,18 +28,21 @@ GitGraph is an AI-powered project management dashboard that transforms chaotic G
 ### Setup Instructions
 
 1. **Clone the repository**:
+
    ```bash
    git clone <repo_url>
    cd cpsc-490-project
    ```
 
 2. **Install dependencies**:
+
    ```bash
    pnpm install
    ```
 
 3. **Environment Variables**:
    Create a `.env.local` file in the root directory and add the following:
+
    ```env
    # Database
    POSTGRES_USER=app
