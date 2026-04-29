@@ -58,6 +58,9 @@ GitGraph is an AI-powered project management dashboard that transforms chaotic G
 
    ```bash
    docker compose --build --no-cache
+   ```
+
+   ```bash
    docker compose up
    ```
 
