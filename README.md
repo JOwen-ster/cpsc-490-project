@@ -4,11 +4,11 @@ GitGraph is an AI-powered project management dashboard that transforms chaotic G
 
 ## Tech Stack
 
-- **Framework**: [Next.js 15](https://nextjs.org/) (App Router)
+- **Framework**: [Next.js 15](https://nextjs.org/) (`App Router`)
 - **Language**: [TypeScript](https://www.typescriptlang.org/)
 - **Database**: [PostgreSQL](https://www.postgresql.org/)
 - **ORM**: [Prisma](https://www.prisma.io/)
-- **Authentication**: [NextAuth.js v5](https://next-auth.js.org/) (GitHub Provider)
+- **Authentication**: [NextAuth.js v5](https://next-auth.js.org/) (`GitHub Provider`)
 - **AI Engine**: [Google Gemini API](https://ai.google.dev/) (`gemini-2.5-flash` & `gemini-2.5-flash-lite`)
 - **Styling**: [Tailwind CSS](https://tailwindcss.com/) & [Shadcn](https://ui.shadcn.com/)
 - **Visuals**: [react-force-graph-2d](https://github.com/vasturiano/react-force-graph-2d) & [Lucide Icons](https://lucide.dev/)
@@ -34,7 +34,14 @@ GitGraph is an AI-powered project management dashboard that transforms chaotic G
    cd cpsc-490-project
    ```
 
-2. **Environment Variables**:
+2. **Install Dependencies Locally**:
+   Install the used package versions using the following command:
+
+   ```bash
+   pnpm i
+   ```
+
+3. **Environment Variables**:
    Create a `.env.local` file in the root directory and add the following:
 
    ```env
@@ -53,7 +60,7 @@ GitGraph is an AI-powered project management dashboard that transforms chaotic G
    GEMINI_API_KEY=your-gemini-api-key
    ```
 
-3. **Start the Environment**:
+4. **Start the Environment**:
    Run the following command to build the webapp image and start the database and application containers:
 
    ```bash
@@ -68,7 +75,7 @@ GitGraph is an AI-powered project management dashboard that transforms chaotic G
 
    Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-4. **Stop the Environment**:
+5. **Stop the Environment**:
    To shut down the environment and delete all volumes (resetting the database):
 
    ```bash
